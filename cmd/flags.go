@@ -6,7 +6,7 @@ import (
 )
 
 type modelParamFlags struct {
-	// Arcana/ArcanaV2 only
+	// Arcana/ArcanaV2/ArcanaV3 only
 	Temperature       float64
 	TopP              float64
 	RepetitionPenalty float64
@@ -16,7 +16,7 @@ type modelParamFlags struct {
 	SamplingRate int
 	SpeedAlpha   float64
 
-	// Mist/MistV2 only
+	// Mist/MistV2/MistV3
 	PauseBetweenBrackets     bool
 	PhonemizeBetweenBrackets bool
 	InlineSpeedAlpha         string
@@ -25,20 +25,20 @@ type modelParamFlags struct {
 }
 
 func (f *modelParamFlags) register(flags *pflag.FlagSet) {
-	// Arcana/ArcanaV2 params
-	flags.Float64Var(&f.Temperature, "temperature", 0.5, "Sampling temperature (arcana/arcanav2 only, 0–1)")
-	flags.Float64Var(&f.TopP, "top-p", 1.0, "Top-p nucleus sampling (arcana/arcanav2 only, 0–1)")
-	flags.Float64Var(&f.RepetitionPenalty, "repetition-penalty", 1.5, "Repetition penalty (arcana/arcanav2 only, 1–2)")
-	flags.IntVar(&f.MaxTokens, "max-tokens", 1200, "Max output tokens (arcana/arcanav2 only, 200–5000)")
+	// Arcana/ArcanaV2/ArcanaV3 params
+	flags.Float64Var(&f.Temperature, "temperature", 0.5, "Sampling temperature (arcana/arcanav2/arcanav3 only, 0–1)")
+	flags.Float64Var(&f.TopP, "top-p", 1.0, "Top-p nucleus sampling (arcana/arcanav2/arcanav3 only, 0–1)")
+	flags.Float64Var(&f.RepetitionPenalty, "repetition-penalty", 1.5, "Repetition penalty (arcana/arcanav2/arcanav3 only, 1–2)")
+	flags.IntVar(&f.MaxTokens, "max-tokens", 1200, "Max output tokens (arcana/arcanav2/arcanav3 only, 200–5000)")
 
 	// Shared params
-	flags.IntVar(&f.SamplingRate, "sampling-rate", 0, "Output sampling rate in Hz (arcana: 8000/16000/22050/24000/44100/48000/96000; mist: 4000–44100)")
+	flags.IntVar(&f.SamplingRate, "sampling-rate", 0, "Output sampling rate in Hz (arcana/arcanav2/arcanav3: 8000/16000/22050/24000/44100/48000/96000; mist: 4000–44100)")
 	flags.Float64Var(&f.SpeedAlpha, "speed-alpha", 1.0, "Speed multiplier, must be >0 (both model families)")
 
-	// Mist/MistV2 params
-	flags.BoolVar(&f.PauseBetweenBrackets, "pause-between-brackets", false, "Insert pause at bracketed markers (mist/mistv2 only)")
-	flags.BoolVar(&f.PhonemizeBetweenBrackets, "phonemize-between-brackets", false, "Phonemize text in brackets (mist/mistv2 only)")
-	flags.StringVar(&f.InlineSpeedAlpha, "inline-speed-alpha", "", "Comma-separated per-segment speed values (mist/mistv2 only)")
+	// Mist/MistV2/MistV3 params
+	flags.BoolVar(&f.PauseBetweenBrackets, "pause-between-brackets", false, "Insert pause at bracketed markers")
+	flags.BoolVar(&f.PhonemizeBetweenBrackets, "phonemize-between-brackets", false, "Phonemize text in brackets")
+	flags.StringVar(&f.InlineSpeedAlpha, "inline-speed-alpha", "", "Comma-separated per-segment speed values (mist models)")
 	flags.BoolVar(&f.NoTextNormalization, "no-text-normalization", false, "Disable text normalization (mist/mistv2 only)")
 	flags.BoolVar(&f.SaveOovs, "save-oovs", false, "Save out-of-vocabulary words (mist/mistv2 only)")
 }

@@ -182,6 +182,45 @@ func TestUsage_CSVOutput(t *testing.T) {
 	}
 }
 
+func TestUsage_DaysFlag(t *testing.T) {
+	setupUsageTest(t, func(w http.ResponseWriter, r *http.Request) {
+		days := r.URL.Query().Get("days")
+		if days != "14" {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("expected days=14, got " + days))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(usageResponse))
+	})
+
+	out, err := captureUsageOutput(t, "--days", "14")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(out, "2026-02-16") {
+		t.Error("output missing date")
+	}
+}
+
+func TestUsage_DaysValidation(t *testing.T) {
+	setupUsageTest(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"data":[]}`))
+	})
+
+	_, err := captureUsageOutput(t, "--days", "0")
+	if err == nil || !strings.Contains(err.Error(), "--days must be between 1 and 28") {
+		t.Errorf("expected validation error for days=0, got: %v", err)
+	}
+
+	_, err = captureUsageOutput(t, "--days", "29")
+	if err == nil || !strings.Contains(err.Error(), "--days must be between 1 and 28") {
+		t.Errorf("expected validation error for days=29, got: %v", err)
+	}
+}
+
 func TestUsage_Unauthorized(t *testing.T) {
 	setupUsageTest(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)

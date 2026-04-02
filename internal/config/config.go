@@ -27,6 +27,23 @@ func ConfigDir() (string, error) {
 	return filepath.Join(home, configDir), nil
 }
 
+// CacheDir returns the OS-appropriate cache directory for the Rime CLI:
+//   - macOS: ~/Library/Caches/rime-cli/
+//   - Linux: $XDG_CACHE_HOME/rime-cli/ or ~/.cache/rime-cli/
+//
+// The directory is created if it does not exist.
+func CacheDir() (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get cache directory: %w", err)
+	}
+	dir := filepath.Join(base, "rime-cli")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create cache directory: %w", err)
+	}
+	return dir, nil
+}
+
 func ConfigFilePath() (string, error) {
 	dir, err := ConfigDir()
 	if err != nil {
@@ -97,8 +114,9 @@ func (e *Environment) GetAPIKey() string {
 
 type Config struct {
 	APIKey           string                 `toml:"api_key"`
-	APIURL           string                 `toml:"api_url"`
+	APIURL           string                 `toml:"api_url,omitempty"`
 	AuthHeaderPrefix *string                `toml:"auth_header_prefix,omitempty"`
+	DefaultEnv       string                 `toml:"default_env,omitempty"`
 	Env              map[string]Environment `toml:"env"`
 }
 
@@ -198,9 +216,53 @@ func RemoveEnvironment(name string) error {
 	return nil
 }
 
+func SaveDefaultEnv(name string) error {
+	if name == "default" {
+		return fmt.Errorf("cannot set default_env to %q; use a named environment", name)
+	}
+
+	path, err := ConfigFilePath()
+	if err != nil {
+		return err
+	}
+
+	cfg, err := LoadConfigFromPath(path)
+	if err != nil {
+		return err
+	}
+	if cfg == nil {
+		return fmt.Errorf("config file not found; run 'rime config init' to create one")
+	}
+
+	if _, ok := cfg.Env[name]; !ok {
+		return fmt.Errorf("environment %q not found in config", name)
+	}
+
+	cfg.DefaultEnv = name
+
+	data, err := toml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Config) ResolveEnvironment(name string) (*Environment, error) {
 	if name == "" {
 		name = "default"
+	}
+
+	// When resolving "default" and DefaultEnv is set, delegate to the named env.
+	if name == "default" && c != nil && c.DefaultEnv != "" {
+		if _, ok := c.Env[c.DefaultEnv]; !ok {
+			return nil, fmt.Errorf("environment %q not found in config (referenced by default_env)", c.DefaultEnv)
+		}
+		return c.ResolveEnvironment(c.DefaultEnv)
 	}
 
 	if name != "default" && c == nil {
@@ -254,11 +316,21 @@ func (c *Config) ResolveEnvironment(name string) (*Environment, error) {
 }
 
 func (c *Config) ListEnvironments() []string {
-	envs := []string{"default"}
 	if c == nil {
+		return []string{"default"}
+	}
+
+	if c.DefaultEnv != "" {
+		// Named envs only — "default" is just an alias, omit it.
+		var envs []string
+		for name := range c.Env {
+			envs = append(envs, name)
+		}
+		sort.Strings(envs)
 		return envs
 	}
 
+	envs := []string{"default"}
 	for name := range c.Env {
 		envs = append(envs, name)
 	}

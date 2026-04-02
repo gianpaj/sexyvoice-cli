@@ -14,7 +14,7 @@ const (
 )
 
 var (
-	transcriptDimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	transcriptDimStyle    = lipgloss.NewStyle().Faint(true)
 	transcriptBrightStyle = lipgloss.NewStyle()
 )
 

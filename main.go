@@ -11,7 +11,7 @@ import (
 var version = "dev"
 
 func main() {
-	rootCmd := cmd.NewRootCmd(version)
+	rootCmd := cmd.NewRootCmd(version, changelogContent)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, styles.Error(err.Error()))
 		os.Exit(1)

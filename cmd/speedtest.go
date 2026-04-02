@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/rimelabs/rime-cli/internal/api"
 	"github.com/rimelabs/rime-cli/internal/config"
@@ -27,11 +29,13 @@ type SpeedtestResult struct {
 func NewSpeedtestCmd() *cobra.Command {
 	var modelID string
 	var speaker string
+	var lang string
+	var text string
 	var extraURLs []string
 	var envFilter []string
-	var modelParams modelParamFlags
 	var runs int
 	var timeout time.Duration
+	var autoYes bool
 
 	cmd := &cobra.Command{
 		Use:   "speedtest",
@@ -100,13 +104,14 @@ func NewSpeedtestCmd() *cobra.Command {
 				return fmt.Errorf("no environments configured")
 			}
 
-			text := fmt.Sprintf("good %s from Rime AI!", getGreeting())
+			if text == "" {
+				text = "running speedtest."
+			}
 			opts := &api.TTSOptions{
 				Speaker: speaker,
 				ModelID: modelID,
-				Lang:    "eng",
+				Lang:    lang,
 			}
-			modelParams.applyChanged(cmd.Flags(), opts)
 
 			results := make([]SpeedtestResult, 0, len(entries))
 
@@ -203,10 +208,36 @@ func NewSpeedtestCmd() *cobra.Command {
 				return encoder.Encode(results)
 			}
 
-			if !Quiet {
-				fastest := findFastest(results)
-				if fastest != nil {
-					fmt.Printf("\n%s %s (%s)\n", styles.Success("Fastest:"), fastest.Environment, formatTTFB(fastest.TTFB))
+			fastest := findFastest(results)
+
+			if !Quiet && fastest != nil {
+				fmt.Printf("\n%s %s (%s)\n", styles.Success("Fastest:"), fastest.Environment, formatTTFB(fastest.TTFB))
+			}
+
+			if fastest != nil && !JSONOutput {
+				currentDefault := "default"
+				if cfg != nil && cfg.DefaultEnv != "" {
+					currentDefault = cfg.DefaultEnv
+				}
+
+				switchDefault := func(name string) {
+					if err := config.SaveDefaultEnv(name); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: could not switch default: %v\n", err)
+					} else if !Quiet {
+						fmt.Printf("%s\n", styles.Successf("Switched default to %q", name))
+					}
+				}
+
+				if fastest.Environment != currentDefault && (autoYes || term.IsTerminal(int(os.Stdin.Fd()))) {
+					if autoYes {
+						switchDefault(fastest.Environment)
+					} else if !Quiet {
+						fmt.Printf("Switch default to %q? [y/N]: ", fastest.Environment)
+						line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+						if strings.ToLower(strings.TrimSpace(line)) == "y" {
+							switchDefault(fastest.Environment)
+						}
+					}
 				}
 			}
 
@@ -216,11 +247,13 @@ func NewSpeedtestCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&modelID, "model", "m", "arcana", "Model ID for the test request")
 	cmd.Flags().StringVarP(&speaker, "speaker", "s", "astra", "Speaker for the test request")
+	cmd.Flags().StringVarP(&lang, "lang", "l", "eng", "Language code for the test request")
+	cmd.Flags().StringVar(&text, "text", "", `Text to synthesize (default "running speedtest.")`)
 	cmd.Flags().StringArrayVar(&extraURLs, "url", nil, "Additional URL to test (repeatable)")
 	cmd.Flags().StringArrayVar(&envFilter, "env", nil, "Only test these named environments from config (repeatable)")
 	cmd.Flags().IntVar(&runs, "runs", 1, "Number of requests per endpoint (reports mean/min/max when >1)")
 	cmd.Flags().DurationVar(&timeout, "timeout", 10*time.Second, "Per-request timeout (0 disables timeout)")
-	modelParams.register(cmd.Flags())
+	cmd.Flags().BoolVarP(&autoYes, "yes", "y", false, "Automatically switch default to the fastest environment")
 
 	return cmd
 }

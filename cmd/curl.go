@@ -140,7 +140,7 @@ Or provide your own text:
 
 			if modelId != "" {
 				if !api.IsValidModelID(modelId) {
-					return fmt.Errorf("invalid modelId: %s (valid options: %s, %s, %s, %s)", modelId, api.ModelIDArcana, api.ModelIDArcanaV2, api.ModelIDMistV2, api.ModelIDMist)
+					return fmt.Errorf("invalid modelId: %s (valid options: %s, %s, %s, %s, %s)", modelId, api.ModelIDArcana, api.ModelIDArcanaV2, api.ModelIDMistV3, api.ModelIDMistV2, api.ModelIDMist)
 				}
 				if !api.IsValidLang(lang, modelId) {
 					return fmt.Errorf("invalid language %q for model %s (valid: %s)", lang, modelId, strings.Join(api.ValidLangsForModel(modelId), ", "))

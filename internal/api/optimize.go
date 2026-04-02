@@ -43,8 +43,8 @@ type UsageHistory struct {
 	Data []UsageDay `json:"data"`
 }
 
-func (c *OptimizeClient) GetRecentUsage() (*UsageHistory, error) {
-	req, err := http.NewRequest("GET", c.baseURL+"/usage/recent-history", nil)
+func (c *OptimizeClient) GetRecentUsage(days int) (*UsageHistory, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/usage/recent-history?days=%d", c.baseURL, days), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

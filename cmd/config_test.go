@@ -308,6 +308,139 @@ func TestConfigEditCmd_UsesEditorEnvVar(t *testing.T) {
 	}
 }
 
+func TestConfigDefaultCmd_Get(t *testing.T) {
+	_, cleanup := setupConfigTestDir(t)
+	defer cleanup()
+
+	configPath, err := config.ConfigFilePath()
+	if err != nil {
+		t.Fatalf("ConfigFilePath failed: %v", err)
+	}
+	writeConfigFile(t, configPath, `api_key = "k"
+default_env = "users"
+
+[env.users]
+api_url = "https://users.rime.ai/v1/rime-tts"
+`)
+
+	cmd := NewConfigDefaultCmd()
+	cmd.SetArgs([]string{})
+	var out strings.Builder
+	cmd.SetOut(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("config default failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "users") {
+		t.Errorf("expected 'users' in output, got %q", out.String())
+	}
+}
+
+func TestConfigDefaultCmd_GetUnset(t *testing.T) {
+	_, cleanup := setupConfigTestDir(t)
+	defer cleanup()
+
+	configPath, err := config.ConfigFilePath()
+	if err != nil {
+		t.Fatalf("ConfigFilePath failed: %v", err)
+	}
+	writeConfigFile(t, configPath, `api_key = "k"`+"\n")
+
+	cmd := NewConfigDefaultCmd()
+	cmd.SetArgs([]string{})
+	var out strings.Builder
+	cmd.SetOut(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("config default failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "default") {
+		t.Errorf("expected 'default' in output, got %q", out.String())
+	}
+}
+
+func TestConfigDefaultCmd_Set(t *testing.T) {
+	_, cleanup := setupConfigTestDir(t)
+	defer cleanup()
+
+	configPath, err := config.ConfigFilePath()
+	if err != nil {
+		t.Fatalf("ConfigFilePath failed: %v", err)
+	}
+	writeConfigFile(t, configPath, `api_key = "k"
+default_env = "users"
+
+[env.users]
+api_url = "https://users.rime.ai/v1/rime-tts"
+
+[env.users-east]
+api_url = "https://users-east.rime.ai/v1/rime-tts"
+`)
+
+	cmd := NewConfigDefaultCmd()
+	cmd.SetArgs([]string{"users-east"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("config default set failed: %v", err)
+	}
+
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	if cfg.DefaultEnv != "users-east" {
+		t.Errorf("expected DefaultEnv 'users-east', got %q", cfg.DefaultEnv)
+	}
+}
+
+func TestConfigDefaultCmd_SetNotFound(t *testing.T) {
+	_, cleanup := setupConfigTestDir(t)
+	defer cleanup()
+
+	configPath, err := config.ConfigFilePath()
+	if err != nil {
+		t.Fatalf("ConfigFilePath failed: %v", err)
+	}
+	writeConfigFile(t, configPath, `api_key = "k"`+"\n")
+
+	cmd := NewConfigDefaultCmd()
+	cmd.SetArgs([]string{"nonexistent"})
+	err = cmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for nonexistent env")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' in error, got: %v", err)
+	}
+}
+
+func TestConfigListCmd_ShowsStarMarker(t *testing.T) {
+	_, cleanup := setupConfigTestDir(t)
+	defer cleanup()
+
+	configPath, err := config.ConfigFilePath()
+	if err != nil {
+		t.Fatalf("ConfigFilePath failed: %v", err)
+	}
+	writeConfigFile(t, configPath, `api_key = "k"
+default_env = "users"
+
+[env.users]
+api_url = "https://users.rime.ai/v1/rime-tts"
+
+[env.users-east]
+api_url = "https://users-east.rime.ai/v1/rime-tts"
+`)
+
+	ConfigFile = ""
+	cmd := NewConfigListCmd()
+	var out strings.Builder
+	cmd.SetOut(&out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("config list failed: %v", err)
+	}
+	if !strings.Contains(out.String(), "users *") {
+		t.Errorf("expected 'users *' in output, got:\n%s", out.String())
+	}
+}
+
 func TestConfigAddCmd_RequiresName(t *testing.T) {
 	_, cleanup := setupConfigTestDir(t)
 	defer cleanup()

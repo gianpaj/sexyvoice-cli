@@ -429,26 +429,20 @@ func TestValidLangsForModel(t *testing.T) {
 }
 
 func TestGetAudioFormat_WAV(t *testing.T) {
-	format := GetAudioFormat("arcana")
-	if format != "audio/wav" {
-		t.Errorf("Expected audio/wav, got %s", format)
-	}
-
-	format = GetAudioFormat("arcanav2")
-	if format != "audio/wav" {
-		t.Errorf("Expected audio/wav for arcanav2, got %s", format)
-	}
-
-	format = GetAudioFormat("")
-	if format != "audio/wav" {
-		t.Errorf("Expected audio/wav for empty model, got %s", format)
+	for _, modelID := range []string{"arcana", "arcanav2", "mistv3", ""} {
+		format := GetAudioFormat(modelID)
+		if format != "audio/wav" {
+			t.Errorf("Expected audio/wav for model %q, got %s", modelID, format)
+		}
 	}
 }
 
 func TestGetAudioFormat_MP3(t *testing.T) {
-	format := GetAudioFormat("mistv2")
-	if format != "audio/mp3" {
-		t.Errorf("Expected audio/mp3, got %s", format)
+	for _, modelID := range []string{"mistv2", "mist"} {
+		format := GetAudioFormat(modelID)
+		if format != "audio/mp3" {
+			t.Errorf("Expected audio/mp3 for model %q, got %s", modelID, format)
+		}
 	}
 }
 
@@ -527,6 +521,7 @@ func TestIsValidModelID(t *testing.T) {
 	}{
 		{ModelIDArcana, true},
 		{ModelIDArcanaV2, true},
+		{ModelIDMistV3, true},
 		{ModelIDMistV2, true},
 		{ModelIDMist, true},
 		{"invalid", false},
@@ -601,6 +596,7 @@ func TestIsMistModel(t *testing.T) {
 	}{
 		{ModelIDMist, true},
 		{ModelIDMistV2, true},
+		{ModelIDMistV3, true},
 		{ModelIDArcana, false},
 		{ModelIDArcanaV2, false},
 		{"", false},
@@ -645,19 +641,26 @@ func TestValidateModelParams(t *testing.T) {
 		{"max-tokens too low", &TTSOptions{ModelID: ModelIDArcana, MaxTokens: ptr(100)}, "between 200 and 5000"},
 		{"max-tokens too high", &TTSOptions{ModelID: ModelIDArcana, MaxTokens: ptr(6000)}, "between 200 and 5000"},
 
-		// Mist-only params on mist — valid
+		// Mist-only params on mist/mistv2/mistv3 — valid
 		{"pause-between-brackets on mist", &TTSOptions{ModelID: ModelIDMist, PauseBetweenBrackets: ptr(true)}, ""},
 		{"phonemize-between-brackets on mistv2", &TTSOptions{ModelID: ModelIDMistV2, PhonemizeBetweenBrackets: ptr(true)}, ""},
+		{"pause-between-brackets on mistv3", &TTSOptions{ModelID: ModelIDMistV3, PauseBetweenBrackets: ptr(true)}, ""},
+		{"phonemize-between-brackets on mistv3", &TTSOptions{ModelID: ModelIDMistV3, PhonemizeBetweenBrackets: ptr(true)}, ""},
 		{"inline-speed-alpha on mist", &TTSOptions{ModelID: ModelIDMist, InlineSpeedAlpha: ptr("1.0,1.2")}, ""},
+		{"inline-speed-alpha on mistv3", &TTSOptions{ModelID: ModelIDMistV3, InlineSpeedAlpha: ptr("1.0")}, ""},
 		{"no-text-normalization on mist", &TTSOptions{ModelID: ModelIDMist, NoTextNormalization: ptr(true)}, ""},
 		{"save-oovs on mist", &TTSOptions{ModelID: ModelIDMist, SaveOovs: ptr(true)}, ""},
 
-		// Mist-only params on arcana — errors
-		{"pause-between-brackets on arcana", &TTSOptions{ModelID: ModelIDArcana, PauseBetweenBrackets: ptr(true)}, "mist/mistv2"},
-		{"phonemize-between-brackets on arcana", &TTSOptions{ModelID: ModelIDArcana, PhonemizeBetweenBrackets: ptr(true)}, "mist/mistv2"},
-		{"inline-speed-alpha on arcana", &TTSOptions{ModelID: ModelIDArcana, InlineSpeedAlpha: ptr("1.0")}, "mist/mistv2"},
+		// Mist params on arcana — errors
+		{"pause-between-brackets on arcana", &TTSOptions{ModelID: ModelIDArcana, PauseBetweenBrackets: ptr(true)}, "mist models"},
+		{"phonemize-between-brackets on arcana", &TTSOptions{ModelID: ModelIDArcana, PhonemizeBetweenBrackets: ptr(true)}, "mist models"},
+		{"inline-speed-alpha on arcana", &TTSOptions{ModelID: ModelIDArcana, InlineSpeedAlpha: ptr("1.0")}, "mist models"},
 		{"no-text-normalization on arcanav2", &TTSOptions{ModelID: ModelIDArcanaV2, NoTextNormalization: ptr(true)}, "mist/mistv2"},
 		{"save-oovs on arcana", &TTSOptions{ModelID: ModelIDArcana, SaveOovs: ptr(true)}, "mist/mistv2"},
+
+		// Mist/MistV2-only params on mistv3 — errors
+		{"no-text-normalization on mistv3", &TTSOptions{ModelID: ModelIDMistV3, NoTextNormalization: ptr(true)}, "mist/mistv2"},
+		{"save-oovs on mistv3", &TTSOptions{ModelID: ModelIDMistV3, SaveOovs: ptr(true)}, "mist/mistv2"},
 
 		// SpeedAlpha
 		{"speed-alpha valid", &TTSOptions{ModelID: ModelIDArcana, SpeedAlpha: ptr(1.5)}, ""},

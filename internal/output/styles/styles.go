@@ -36,7 +36,7 @@ var (
 			Foreground(lipgloss.Color("12"))
 
 	DimStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("8"))
+			Faint(true)
 )
 
 func Error(msg string) string {

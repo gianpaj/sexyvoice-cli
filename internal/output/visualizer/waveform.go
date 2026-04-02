@@ -15,8 +15,8 @@ const (
 )
 
 var (
-	brightStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("15"))
-	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	brightStyle = lipgloss.NewStyle().Bold(true)
+	dimStyle    = lipgloss.NewStyle().Faint(true)
 )
 
 // Waveform manages amplitude samples for visualization with playhead support.

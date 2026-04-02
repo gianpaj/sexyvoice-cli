@@ -339,31 +339,9 @@ func TestSpeedtest_ModelFlag(t *testing.T) {
 	if got, _ := req["modelId"].(string); got != "arcanav2" {
 		t.Errorf("expected modelId=arcanav2, got %q", got)
 	}
-}
-
-func TestSpeedtest_SpeakerFlag(t *testing.T) {
-	wavData := testhelpers.MakeValidWAV(24000)
-	server, getReq := captureRequest(t, wavData)
-	defer server.Close()
-
-	setupSpeedtestConfig(t, server.URL)
-	Version = "test-version"
-	Quiet = true
-	JSONOutput = false
-	ConfigFile = ""
-
-	cmd := NewSpeedtestCmd()
-	cmd.SetArgs([]string{"--speaker", "luna"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatalf("command failed: %v", err)
-	}
-
-	req := getReq()
-	if req == nil {
-		t.Fatal("no request captured")
-	}
-	if got, _ := req["speaker"].(string); got != "luna" {
-		t.Errorf("expected speaker=luna, got %q", got)
+	// Speaker should be hardcoded to "astra" — no --speaker flag
+	if got, _ := req["speaker"].(string); got != "astra" {
+		t.Errorf("expected hardcoded speaker=astra, got %q", got)
 	}
 }
 
@@ -691,5 +669,102 @@ func TestSpeedtest_URLFlag_NoConfig(t *testing.T) {
 	}
 	if hits.Load() == 0 {
 		t.Error("--url server should have been called")
+	}
+}
+
+func setupSpeedtestConfigWithNamedEnvs(t *testing.T, usersURL, usersEastURL string) string {
+	t.Helper()
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	configDir := tmpDir + "/.rime"
+	os.MkdirAll(configDir, 0700)
+	content := "api_key = \"test-key\"\ndefault_env = \"users\"\n\n[env.users]\napi_url = \"" + usersURL + "\"\n\n[env.users-east]\napi_url = \"" + usersEastURL + "\"\n"
+	os.WriteFile(configDir+"/rime.toml", []byte(content), 0600)
+	return tmpDir
+}
+
+func TestSpeedtest_YesFlag_SwitchesDefault(t *testing.T) {
+	wavData := testhelpers.MakeValidWAV(24000)
+
+	// users-east responds faster (no delay)
+	usersEastServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "audio/wav")
+		w.WriteHeader(http.StatusOK)
+		w.Write(wavData)
+	}))
+	defer usersEastServer.Close()
+
+	// users responds slower
+	usersServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(80 * time.Millisecond)
+		w.Header().Set("Content-Type", "audio/wav")
+		w.WriteHeader(http.StatusOK)
+		w.Write(wavData)
+	}))
+	defer usersServer.Close()
+
+	tmpDir := setupSpeedtestConfigWithNamedEnvs(t, usersServer.URL, usersEastServer.URL)
+
+	Version = "test-version"
+	Quiet = true
+	JSONOutput = false
+	ConfigFile = ""
+
+	cmd := NewSpeedtestCmd()
+	cmd.SetArgs([]string{"--yes"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("command failed: %v", err)
+	}
+
+	// Reload config and check default_env was updated to users-east
+	configPath := tmpDir + "/.rime/rime.toml"
+	cfg, err := config.LoadConfigFromPath(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	if cfg.DefaultEnv != "users-east" {
+		t.Errorf("expected DefaultEnv to be switched to 'users-east', got %q", cfg.DefaultEnv)
+	}
+}
+
+func TestSpeedtest_YesFlag_NoChangeIfAlreadyFastest(t *testing.T) {
+	wavData := testhelpers.MakeValidWAV(24000)
+
+	// users is fast, users-east is slow — default (users) is already fastest
+	usersServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "audio/wav")
+		w.WriteHeader(http.StatusOK)
+		w.Write(wavData)
+	}))
+	defer usersServer.Close()
+
+	usersEastServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(80 * time.Millisecond)
+		w.Header().Set("Content-Type", "audio/wav")
+		w.WriteHeader(http.StatusOK)
+		w.Write(wavData)
+	}))
+	defer usersEastServer.Close()
+
+	tmpDir := setupSpeedtestConfigWithNamedEnvs(t, usersServer.URL, usersEastServer.URL)
+
+	Version = "test-version"
+	Quiet = true
+	JSONOutput = false
+	ConfigFile = ""
+
+	cmd := NewSpeedtestCmd()
+	cmd.SetArgs([]string{"--yes"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("command failed: %v", err)
+	}
+
+	configPath := tmpDir + "/.rime/rime.toml"
+	cfg, err := config.LoadConfigFromPath(configPath)
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	if cfg.DefaultEnv != "users" {
+		t.Errorf("expected DefaultEnv to remain 'users', got %q", cfg.DefaultEnv)
 	}
 }

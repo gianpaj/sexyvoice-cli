@@ -16,13 +16,18 @@ import (
 
 func NewUsageCmd() *cobra.Command {
 	var csvOutput bool
+	var days int
 
 	cmd := &cobra.Command{
 		Use:   "usage",
 		Short: "Show recent API usage history",
-		Long:  "Displays daily character usage for Mist and Arcana models over the past week",
+		Long:  "Displays daily character usage for Mist and Arcana models. Use --days to control how many days of history to show (default 7, max 28).",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if days < 1 || days > 28 {
+				return fmt.Errorf("--days must be between 1 and 28")
+			}
+
 			resolved, err := config.ResolveConfigWithOptions(config.ResolveOptions{
 				EnvName:    ConfigEnv,
 				ConfigFile: ConfigFile,
@@ -36,7 +41,7 @@ func NewUsageCmd() *cobra.Command {
 			}
 
 			client := api.NewOptimizeClient(resolved.APIKey, Version)
-			history, err := client.GetRecentUsage()
+			history, err := client.GetRecentUsage(days)
 			if err != nil {
 				return err
 			}
@@ -56,6 +61,7 @@ func NewUsageCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&csvOutput, "csv", false, "Output results as CSV")
+	cmd.Flags().IntVar(&days, "days", 7, "Number of days of usage history to show (max 28)")
 
 	return cmd
 }

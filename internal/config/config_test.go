@@ -649,6 +649,259 @@ func TestRemoveEnvironment_RejectsDefault(t *testing.T) {
 	}
 }
 
+func TestDefaultEnv_Resolution(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", originalHome)
+	os.Setenv("HOME", tmpDir)
+	os.Unsetenv("RIME_API_URL")
+	os.Unsetenv("RIME_CLI_API_KEY")
+	os.Unsetenv("RIME_AUTH_HEADER_PREFIX")
+
+	configPath, err := ConfigFilePath()
+	if err != nil {
+		t.Fatalf("ConfigFilePath failed: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		t.Fatalf("Failed to create config dir: %v", err)
+	}
+
+	content := `api_key = "global-key"
+default_env = "users"
+
+[env.users]
+api_url = "https://users.rime.ai/v1/rime-tts"
+
+[env.users-east]
+api_url = "https://users-east.rime.ai/v1/rime-tts"
+`
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	// "default" should resolve to the users env
+	env, err := cfg.ResolveEnvironment("default")
+	if err != nil {
+		t.Fatalf("ResolveEnvironment(default) failed: %v", err)
+	}
+	if env.APIURL != "https://users.rime.ai/v1/rime-tts" {
+		t.Errorf("expected users URL, got %q", env.APIURL)
+	}
+}
+
+func TestDefaultEnv_MissingNamedEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", originalHome)
+	os.Setenv("HOME", tmpDir)
+
+	configPath, err := ConfigFilePath()
+	if err != nil {
+		t.Fatalf("ConfigFilePath failed: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		t.Fatalf("Failed to create config dir: %v", err)
+	}
+
+	content := `api_key = "k"
+default_env = "nonexistent"
+`
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	_, err = cfg.ResolveEnvironment("default")
+	if err == nil {
+		t.Fatal("expected error when default_env points to missing env")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' in error, got: %v", err)
+	}
+}
+
+func TestListEnvironments_WithDefaultEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", originalHome)
+	os.Setenv("HOME", tmpDir)
+
+	configPath, err := ConfigFilePath()
+	if err != nil {
+		t.Fatalf("ConfigFilePath failed: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		t.Fatalf("Failed to create config dir: %v", err)
+	}
+
+	content := `api_key = "k"
+default_env = "users"
+
+[env.users]
+api_url = "https://users.rime.ai/v1/rime-tts"
+
+[env.users-east]
+api_url = "https://users-east.rime.ai/v1/rime-tts"
+`
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	envs := cfg.ListEnvironments()
+	for _, name := range envs {
+		if name == "default" {
+			t.Error("ListEnvironments should not include synthetic 'default' when default_env is set")
+		}
+	}
+	if len(envs) != 2 {
+		t.Errorf("expected 2 envs, got %d: %v", len(envs), envs)
+	}
+}
+
+func TestListEnvironments_WithoutDefaultEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", originalHome)
+	os.Setenv("HOME", tmpDir)
+
+	configPath, err := ConfigFilePath()
+	if err != nil {
+		t.Fatalf("ConfigFilePath failed: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		t.Fatalf("Failed to create config dir: %v", err)
+	}
+
+	content := `api_key = "k"
+api_url = "https://users.rime.ai/v1/rime-tts"
+
+[env.staging]
+api_url = "https://staging.rime.ai/v1/rime-tts"
+`
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	envs := cfg.ListEnvironments()
+	hasDefault := false
+	for _, name := range envs {
+		if name == "default" {
+			hasDefault = true
+		}
+	}
+	if !hasDefault {
+		t.Error("ListEnvironments should include 'default' when default_env is not set")
+	}
+}
+
+func TestSaveDefaultEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", originalHome)
+	os.Setenv("HOME", tmpDir)
+
+	configPath, err := ConfigFilePath()
+	if err != nil {
+		t.Fatalf("ConfigFilePath failed: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		t.Fatalf("Failed to create config dir: %v", err)
+	}
+
+	content := `api_key = "k"
+default_env = "users"
+
+[env.users]
+api_url = "https://users.rime.ai/v1/rime-tts"
+
+[env.users-east]
+api_url = "https://users-east.rime.ai/v1/rime-tts"
+`
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	if err := SaveDefaultEnv("users-east"); err != nil {
+		t.Fatalf("SaveDefaultEnv failed: %v", err)
+	}
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+	if cfg.DefaultEnv != "users-east" {
+		t.Errorf("expected DefaultEnv 'users-east', got %q", cfg.DefaultEnv)
+	}
+}
+
+func TestSaveDefaultEnv_NotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", originalHome)
+	os.Setenv("HOME", tmpDir)
+
+	configPath, err := ConfigFilePath()
+	if err != nil {
+		t.Fatalf("ConfigFilePath failed: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		t.Fatalf("Failed to create config dir: %v", err)
+	}
+	if err := os.WriteFile(configPath, []byte(`api_key = "k"`+"\n"), 0600); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	err = SaveDefaultEnv("nonexistent")
+	if err == nil {
+		t.Fatal("expected error for nonexistent env")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' in error, got: %v", err)
+	}
+}
+
+func TestSaveDefaultEnv_RejectsDefault(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalHome := os.Getenv("HOME")
+	defer os.Setenv("HOME", originalHome)
+	os.Setenv("HOME", tmpDir)
+
+	configPath, err := ConfigFilePath()
+	if err != nil {
+		t.Fatalf("ConfigFilePath failed: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		t.Fatalf("Failed to create config dir: %v", err)
+	}
+	if err := os.WriteFile(configPath, []byte(`api_key = "k"`+"\n"), 0600); err != nil {
+		t.Fatalf("Failed to write config: %v", err)
+	}
+
+	err = SaveDefaultEnv("default")
+	if err == nil {
+		t.Fatal("expected error when setting default_env to 'default'")
+	}
+}
+
 func TestSaveEnvironment_FilePermissions(t *testing.T) {
 	tmpDir := t.TempDir()
 	originalHome := os.Getenv("HOME")

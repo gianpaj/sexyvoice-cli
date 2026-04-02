@@ -26,6 +26,7 @@ func NewConfigCmd() *cobra.Command {
 	cmd.AddCommand(NewConfigShowCmd())
 	cmd.AddCommand(NewConfigRmCmd())
 	cmd.AddCommand(NewConfigEditCmd())
+	cmd.AddCommand(NewConfigDefaultCmd())
 	return cmd
 }
 
@@ -143,10 +144,13 @@ func NewConfigInitCmd() *cobra.Command {
 			}
 
 			cfg := fmt.Sprintf(`api_key = %q
+default_env = "users"
+
+[env.users]
 api_url = "https://users.rime.ai/v1/rime-tts"
 
-# [env.example]
-# api_url = "https://example.rime.ai/v1/rime-tts"
+[env.users-east]
+api_url = "https://users-east.rime.ai/v1/rime-tts"
 `, apiKey)
 
 			if err := os.WriteFile(path, []byte(cfg), 0600); err != nil {
@@ -182,7 +186,7 @@ func NewConfigListCmd() *cobra.Command {
 			}
 
 			if cfg == nil {
-				fmt.Println("No config file found. Run 'rime config init' to create one.")
+				fmt.Fprintln(cmd.OutOrStdout(), "No config file found. Run 'rime config init' to create one.")
 				return nil
 			}
 
@@ -190,8 +194,13 @@ func NewConfigListCmd() *cobra.Command {
 				return listEnvironmentsJSON(cfg)
 			}
 
-			fmt.Printf("%-15s %-50s %s\n", "NAME", "URL", "AUTH")
-			fmt.Println(strings.Repeat("-", 80))
+			currentDefault := cfg.DefaultEnv
+			if currentDefault == "" {
+				currentDefault = "default"
+			}
+
+			fmt.Fprintf(cmd.OutOrStdout(), "%-17s %-50s %s\n", "NAME", "URL", "AUTH")
+			fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", 80))
 
 			envs := cfg.ListEnvironments()
 			for _, name := range envs {
@@ -201,8 +210,8 @@ func NewConfigListCmd() *cobra.Command {
 				}
 
 				displayName := name
-				if name == "default" {
-					displayName = "default"
+				if name == currentDefault {
+					displayName = name + " *"
 				}
 
 				authStatus := ""
@@ -213,7 +222,7 @@ func NewConfigListCmd() *cobra.Command {
 					authStatus = "(no auth)"
 				}
 
-				fmt.Printf("%-15s %-50s %s\n", displayName, env.APIURL, authStatus)
+				fmt.Fprintf(cmd.OutOrStdout(), "%-17s %-50s %s\n", displayName, env.APIURL, authStatus)
 			}
 
 			return nil
@@ -390,6 +399,44 @@ func NewConfigEditCmd() *cobra.Command {
 			c.Stdout = os.Stdout
 			c.Stderr = os.Stderr
 			return c.Run()
+		},
+	}
+}
+
+func NewConfigDefaultCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "default [name]",
+		Short: "Get or set the default environment",
+		Long:  "With no arguments, prints the current default environment. With a name argument, sets default_env in the config file.",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+
+			if len(args) == 0 {
+				var cfg *config.Config
+				var err error
+				if ConfigFile != "" {
+					cfg, err = config.LoadConfigFromPath(ConfigFile)
+				} else {
+					cfg, err = config.LoadConfig()
+				}
+				if err != nil {
+					return err
+				}
+				current := "default"
+				if cfg != nil && cfg.DefaultEnv != "" {
+					current = cfg.DefaultEnv
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), current)
+				return nil
+			}
+
+			name := args[0]
+			if err := config.SaveDefaultEnv(name); err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), styles.Successf("Default environment set to %q", name))
+			return nil
 		},
 	}
 }

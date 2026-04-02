@@ -33,8 +33,8 @@ func NewTTSCmd() *cobra.Command {
 		Long: `Convert text to speech audio.
 
 Supports both WAV and MP3 formats. The format is automatically selected based on the model:
-- mistv2 model outputs MP3 format
-- All other models output WAV format
+- mist/mistv2 default to MP3 format
+- mistv3/arcana/arcanav2 default to WAV format
 
 Use --format to override the default format selection.
 
@@ -58,15 +58,10 @@ The CLI handles format detection, metadata embedding, and playback for both form
 				return fmt.Errorf("--model-id is required. You can use --model-id %s", api.ModelIDArcana)
 			}
 			if !api.IsValidModelID(modelId) {
-				return fmt.Errorf("invalid modelId: %s (valid options: %s, %s, %s, %s)", modelId, api.ModelIDArcana, api.ModelIDArcanaV2, api.ModelIDMistV2, api.ModelIDMist)
+				return fmt.Errorf("invalid modelId: %s (valid options: %s)", modelId, strings.Join(api.ValidModelIDs(), ", "))
 			}
 			if !api.IsValidLang(lang, modelId) {
 				return fmt.Errorf("invalid language %q for model %s (valid: %s)", lang, modelId, strings.Join(api.ValidLangsForModel(modelId), ", "))
-			}
-
-			modelIdLower := strings.ToLower(modelId)
-			if (modelIdLower == api.ModelIDMist || modelIdLower == api.ModelIDMistV2) && format != "mp3" {
-				return fmt.Errorf("%s and %s models require --format mp3. Please specify --format mp3", api.ModelIDMist, api.ModelIDMistV2)
 			}
 
 			var audioFormat string
@@ -158,7 +153,7 @@ The CLI handles format detection, metadata embedding, and playback for both form
 		cmd.Flags().BoolVarP(&play, "play", "p", false, "Play audio (default if no output specified)")
 	}
 	cmd.Flags().StringVarP(&spk, "speaker", "s", "", "Voice speaker to use (required)")
-	cmd.Flags().StringVarP(&modelId, "model-id", "m", "", fmt.Sprintf("Model ID (required, e.g., %s, %s, %s, %s)", api.ModelIDArcana, api.ModelIDArcanaV2, api.ModelIDMistV2, api.ModelIDMist))
+	cmd.Flags().StringVarP(&modelId, "model-id", "m", "", fmt.Sprintf("Model ID (required, e.g., %s, %s, %s, %s, %s, %s)", api.ModelIDArcana, api.ModelIDArcanaV2, api.ModelIDArcanaV3, api.ModelIDMistV3, api.ModelIDMistV2, api.ModelIDMist))
 	cmd.Flags().StringVar(&modelId, "modelId", "", "")
 	cmd.Flags().MarkHidden("modelId")
 	cmd.Flags().StringVarP(&lang, "lang", "l", "eng", "Language code (e.g., eng, es, fra). Valid codes depend on model.")

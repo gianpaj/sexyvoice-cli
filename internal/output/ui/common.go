@@ -14,7 +14,7 @@ import (
 var Spinner = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
 var HeaderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
-var DimStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+var DimStyle = lipgloss.NewStyle().Faint(true)
 
 func GetTerminalWidth(minWidth, maxWidth int) int {
 	width, _, _ := term.GetSize(int(os.Stdout.Fd()))
