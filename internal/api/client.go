@@ -97,6 +97,19 @@ type speechResponse struct {
 	URL string `json:"url"`
 }
 
+type Voice struct {
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	Language      string   `json:"language"`
+	Model         string   `json:"model"`
+	Formats       []string `json:"formats"`
+	SupportsStyle bool     `json:"supports_style"`
+}
+
+type voicesResponse struct {
+	Data []Voice `json:"data"`
+}
+
 type apiErrorEnvelope struct {
 	Error struct {
 		Message string `json:"message"`
@@ -346,6 +359,40 @@ func (c *Client) ValidateAPIKey() error {
 		return fmt.Errorf(apiErrorFromResponse(resp.StatusCode, body))
 	}
 	return nil
+}
+
+func (c *Client) ListVoices() ([]Voice, error) {
+	voicesURL := strings.TrimSuffix(strings.TrimSuffix(c.baseURL, "/"), "/speech") + "/voices"
+
+	req, err := http.NewRequest(http.MethodGet, voicesURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", c.userAgent)
+	if c.apiKey != "" && c.authHeaderPrefix != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("%s %s", c.authHeaderPrefix, c.apiKey))
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read API response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf(apiErrorFromResponse(resp.StatusCode, body))
+	}
+
+	var payload voicesResponse
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, fmt.Errorf("failed to parse API response: %w", err)
+	}
+	return payload.Data, nil
 }
 
 func EffectiveOpts(opts *TTSOptions) (speaker, modelId, lang string) {

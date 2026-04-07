@@ -83,6 +83,33 @@ func TestValidateAPIKey_UsesModelsEndpoint(t *testing.T) {
 	}
 }
 
+func TestListVoices_UsesVoicesEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/voices" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer test-key" {
+			t.Fatalf("unexpected auth header: %s", r.Header.Get("Authorization"))
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"data":[{"id":"voice-1","name":"poe","language":"multiple","model":"gpro","formats":["wav"],"supports_style":true}]}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(ClientOptions{
+		APIKey:  "test-key",
+		APIURL:  server.URL + "/api/v1/speech",
+		Version: "test",
+	})
+	voices, err := client.ListVoices()
+	if err != nil {
+		t.Fatalf("ListVoices failed: %v", err)
+	}
+	if len(voices) != 1 || voices[0].Name != "poe" || !voices[0].SupportsStyle {
+		t.Fatalf("unexpected voices payload: %+v", voices)
+	}
+}
+
 func TestTTS_Unauthorized(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)

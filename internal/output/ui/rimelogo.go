@@ -4,19 +4,19 @@ import (
 	"strings"
 )
 
-const rimeLogo = "" +
-	"⡔⠉⠉⢢ ⡔⠉⠉⢢ ⡔⠉⠉⢢ ⡔⠉⠉⢢\n" +
-	"⡇⠀⠀⢸ ⡇⠀⠀⢸ ⡇⠀⠀⢸ ⠣⣀⣀⠜\n" +
-	"⡇⠀⠀⢸ ⠣⣀⣀⠜ ⡇⠀⠀⢸ ⡔⠉⠉⢢\n" +
-	"⡇⠀⠀⢸ ⡔⠉⠉⢢ ⠣⣀⣀⠜ ⡇⠀⠀⢸\n" +
-	"⠣⣀⣀⠜ ⡇⠀⠀⢸ ⡔⠉⠉⢢ ⡇⠀⠀⢸\n" +
-	"⡔⠉⠉⢢ ⡇⠀⠀⢸ ⡇⠀⠀⢸ ⡇⠀⠀⢸\n" +
-	"⠣⣀⣀⠜ ⠣⣀⣀⠜ ⠣⣀⣀⠜ ⠣⣀⣀⠜"
+const sexyVoiceLogo = "" +
+	" ░▒▓███████▓▒░▒▓█▓▒░░▒▓█▓▒░\n" +
+	"░▒▓█▓▒░      ░▒▓█▓▒░░▒▓█▓▒░\n" +
+	"░▒▓█▓▒░       ░▒▓█▓▒▒▓█▓▒░ \n" +
+	" ░▒▓██████▓▒░ ░▒▓█▓▒▒▓█▓▒░ \n" +
+	"       ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░  \n" +
+	"       ░▒▓█▓▒░ ░▒▓█▓▓█▓▒░  \n" +
+	"░▒▓███████▓▒░   ░▒▓██▓▒░"
 
-const rimeLogoWidth = 19
+const sexyVoiceLogoWidth = 19
 
 func PaddedLogo() string {
-	lines := strings.Split(rimeLogo, "\n")
+	lines := strings.Split(sexyVoiceLogo, "\n")
 	pad := "  "
 
 	var b strings.Builder
@@ -28,9 +28,9 @@ func PaddedLogo() string {
 }
 
 func UnboxedLogoPlain() string {
-	return rimeLogo
+	return sexyVoiceLogo
 }
 
 func UnboxedLogoWidth() int {
-	return rimeLogoWidth
+	return sexyVoiceLogoWidth
 }
