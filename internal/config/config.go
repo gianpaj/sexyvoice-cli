@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	configDir           = ".rime"
-	configFile          = "rime.toml"
-	EnvAPIKey           = "RIME_CLI_API_KEY"
-	EnvAPIURL           = "RIME_API_URL"
-	EnvAuthHeaderPrefix = "RIME_AUTH_HEADER_PREFIX"
-	defaultAPIURL       = "https://users.rime.ai/v1/rime-tts"
+	configDir           = ".sexyvoice"
+	configFile          = "sexyvoice.toml"
+	EnvAPIKey           = "SEXYVOICE_API_KEY"
+	EnvAPIURL           = "SEXYVOICE_API_URL"
+	EnvAuthHeaderPrefix = "SEXYVOICE_AUTH_HEADER_PREFIX"
+	defaultAPIURL       = "https://sexyvoice.ai/api/v1/speech"
 	defaultAuthPrefix   = "Bearer"
 )
 
@@ -27,9 +27,9 @@ func ConfigDir() (string, error) {
 	return filepath.Join(home, configDir), nil
 }
 
-// CacheDir returns the OS-appropriate cache directory for the Rime CLI:
-//   - macOS: ~/Library/Caches/rime-cli/
-//   - Linux: $XDG_CACHE_HOME/rime-cli/ or ~/.cache/rime-cli/
+// CacheDir returns the OS-appropriate cache directory for the SexyVoice CLI:
+//   - macOS: ~/Library/Caches/sexyvoice-cli/
+//   - Linux: $XDG_CACHE_HOME/sexyvoice-cli/ or ~/.cache/sexyvoice-cli/
 //
 // The directory is created if it does not exist.
 func CacheDir() (string, error) {
@@ -37,7 +37,7 @@ func CacheDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get cache directory: %w", err)
 	}
-	dir := filepath.Join(base, "rime-cli")
+	dir := filepath.Join(base, "sexyvoice-cli")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create cache directory: %w", err)
 	}
@@ -160,7 +160,7 @@ func SaveEnvironment(name string, env Environment) error {
 		return err
 	}
 	if cfg == nil {
-		return fmt.Errorf("config file not found; run 'rime config init' to create one")
+		return fmt.Errorf("config file not found; run 'sexyvoice config init' to create one")
 	}
 
 	if cfg.Env == nil {
@@ -191,7 +191,7 @@ func RemoveEnvironment(name string) error {
 		return err
 	}
 	if cfg == nil {
-		return fmt.Errorf("config file not found; run 'rime config init' to create one")
+		return fmt.Errorf("config file not found; run 'sexyvoice config init' to create one")
 	}
 
 	if name == "default" {
@@ -231,7 +231,7 @@ func SaveDefaultEnv(name string) error {
 		return err
 	}
 	if cfg == nil {
-		return fmt.Errorf("config file not found; run 'rime config init' to create one")
+		return fmt.Errorf("config file not found; run 'sexyvoice config init' to create one")
 	}
 
 	if _, ok := cfg.Env[name]; !ok {

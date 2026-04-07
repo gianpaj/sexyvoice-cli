@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/rimelabs/rime-cli/internal/api"
+	"github.com/gianpaj/sexyvoice-cli/internal/api"
 	"github.com/spf13/pflag"
 )
 

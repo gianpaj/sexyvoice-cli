@@ -3,7 +3,7 @@ package analyze
 import (
 	"testing"
 
-	"github.com/rimelabs/rime-cli/internal/audio/testhelpers"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/testhelpers"
 )
 
 func TestScaleAmplitudes_Basic(t *testing.T) {

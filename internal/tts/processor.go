@@ -8,14 +8,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/rimelabs/rime-cli/internal/api"
-	"github.com/rimelabs/rime-cli/internal/audio/analyze"
-	"github.com/rimelabs/rime-cli/internal/audio/detectformat"
-	"github.com/rimelabs/rime-cli/internal/audio/metadata"
-	"github.com/rimelabs/rime-cli/internal/audio/playback"
-	"github.com/rimelabs/rime-cli/internal/config"
-	"github.com/rimelabs/rime-cli/internal/output/formatters"
-	"github.com/rimelabs/rime-cli/internal/output/styles"
+	"github.com/gianpaj/sexyvoice-cli/internal/api"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/analyze"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/detectformat"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/metadata"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/playback"
+	"github.com/gianpaj/sexyvoice-cli/internal/config"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/formatters"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/styles"
 )
 
 const (
@@ -97,8 +97,8 @@ func RunNonInteractive(opts RunOptions) error {
 
 		if contentType == "audio/mpeg" || contentType == "audio/mp3" {
 			meta := metadata.MP3Metadata{
-				Artist:  "Rime AI TTS",
-				Title:   fmt.Sprintf("Rime AI TTS [%s-%s-%s]: %s", spk, modelId, lang, truncatedText),
+				Artist:  "SexyVoice AI",
+				Title:   fmt.Sprintf("SexyVoice AI [%s-%s-%s]: %s", spk, modelId, lang, truncatedText),
 				Comment: fmt.Sprintf("[%s-%s-%s]: %s", spk, modelId, lang, opts.Text),
 			}
 			var embedErr error
@@ -108,8 +108,8 @@ func RunNonInteractive(opts RunOptions) error {
 			}
 		} else {
 			meta := metadata.WavMetadata{
-				Artist:  "Rime AI TTS",
-				Name:    fmt.Sprintf("Rime AI TTS [%s-%s-%s]: %s", spk, modelId, lang, truncatedText),
+				Artist:  "SexyVoice AI",
+				Name:    fmt.Sprintf("SexyVoice AI [%s-%s-%s]: %s", spk, modelId, lang, truncatedText),
 				Comment: fmt.Sprintf("[%s-%s-%s]: %s", spk, modelId, lang, opts.Text),
 			}
 			audioData = metadata.EmbedMetadata(audioData, meta)

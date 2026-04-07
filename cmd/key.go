@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rimelabs/rime-cli/internal/config"
+	"github.com/gianpaj/sexyvoice-cli/internal/config"
 )
 
 func NewKeyCmd() *cobra.Command {

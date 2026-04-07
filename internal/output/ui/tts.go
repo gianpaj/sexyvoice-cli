@@ -11,15 +11,15 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gopxl/beep/v2"
 
-	"github.com/rimelabs/rime-cli/internal/api"
-	"github.com/rimelabs/rime-cli/internal/audio/analyze"
-	"github.com/rimelabs/rime-cli/internal/audio/decode"
-	"github.com/rimelabs/rime-cli/internal/audio/detectformat"
-	"github.com/rimelabs/rime-cli/internal/audio/metadata"
-	"github.com/rimelabs/rime-cli/internal/config"
-	"github.com/rimelabs/rime-cli/internal/output/formatters"
-	"github.com/rimelabs/rime-cli/internal/output/styles"
-	"github.com/rimelabs/rime-cli/internal/output/visualizer"
+	"github.com/gianpaj/sexyvoice-cli/internal/api"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/analyze"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/decode"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/detectformat"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/metadata"
+	"github.com/gianpaj/sexyvoice-cli/internal/config"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/formatters"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/styles"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/visualizer"
 )
 
 type TTSState int
@@ -238,7 +238,7 @@ func (m TTSModel) View() string {
 				{"speaker", spk},
 				{"lang", lang},
 			}
-			b.WriteString(RenderMinimalView("Rime TTS", m.waveform, m.transcript, m.text, m.termWidth, labels, statsLine))
+			b.WriteString(RenderMinimalView("SexyVoice TTS", m.waveform, m.transcript, m.text, m.termWidth, labels, statsLine))
 		} else {
 			header := RenderLabeledHeader(spk, modelId, lang)
 			var elapsedStr string
@@ -368,8 +368,8 @@ func (m *TTSModel) finalize() tea.Cmd {
 
 			if contentType == "audio/mpeg" || contentType == "audio/mp3" {
 				meta := metadata.MP3Metadata{
-					Artist:  "Rime AI TTS",
-					Title:   fmt.Sprintf("Rime AI TTS [%s-%s-%s]: %s", spk, modelId, lang, truncatedText),
+					Artist:  "SexyVoice TTS",
+					Title:   fmt.Sprintf("SexyVoice TTS [%s-%s-%s]: %s", spk, modelId, lang, truncatedText),
 					Comment: fmt.Sprintf("[%s-%s-%s]: %s", spk, modelId, lang, text),
 				}
 				var embedErr error
@@ -379,8 +379,8 @@ func (m *TTSModel) finalize() tea.Cmd {
 				}
 			} else {
 				meta := metadata.WavMetadata{
-					Artist:  "Rime AI TTS",
-					Name:    fmt.Sprintf("Rime AI TTS [%s-%s-%s]: %s", spk, modelId, lang, truncatedText),
+					Artist:  "SexyVoice TTS",
+					Name:    fmt.Sprintf("SexyVoice TTS [%s-%s-%s]: %s", spk, modelId, lang, truncatedText),
 					Comment: fmt.Sprintf("[%s-%s-%s]: %s", spk, modelId, lang, text),
 				}
 				audioData = metadata.EmbedMetadata(audioData, meta)

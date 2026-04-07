@@ -6,17 +6,23 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"sort"
 	"strings"
 	"time"
 )
 
 const (
-	defaultAPIBaseURL   = "https://users.rime.ai/v1/rime-tts"
-	defaultDashboardURL = "https://app.rime.ai"
-	oovURL              = "https://users.rime.ai/oov"
+	defaultAPIBaseURL   = "https://sexyvoice.ai/api/v1/speech"
+	defaultDashboardURL = "https://sexyvoice.ai"
 
+	ModelIDGPro    = "gpro"
+	ModelIDOrpheus = "orpheus"
+	ModelIDGrok    = "grok"
+
+	// Legacy constants retained so older internal files still compile.
 	ModelIDArcana   = "arcana"
 	ModelIDArcanaV2 = "arcanav2"
 	ModelIDArcanaV3 = "arcanav3"
@@ -26,80 +32,9 @@ const (
 )
 
 var validModelIDs = map[string]bool{
-	ModelIDArcana:   true,
-	ModelIDArcanaV2: true,
-	ModelIDArcanaV3: true,
-	ModelIDMist:     true,
-	ModelIDMistV2:   true,
-	ModelIDMistV3:   true,
-}
-
-type langEntry struct {
-	iso3 string
-	iso1 string
-}
-
-var allLangs = []langEntry{
-	{"ara", "ar"},
-	{"eng", "en"},
-	{"fra", "fr"},
-	{"ger", "de"},
-	{"heb", "he"},
-	{"hin", "hi"},
-	{"jpn", "ja"},
-	{"por", "pt"},
-	{"sin", "si"},
-	{"spa", "es"},
-	{"tam", "ta"},
-}
-
-var mistLangSet = map[string]bool{
-	"eng": true, "en": true,
-	"fra": true, "fr": true,
-	"ger": true, "de": true,
-	"spa": true, "es": true,
-}
-
-var arcanaV2LangSet = map[string]bool{
-	"eng": true, "en": true,
-	"spa": true, "es": true,
-	"ger": true, "de": true,
-	"fra": true, "fr": true,
-	"hin": true, "hi": true,
-}
-
-var arcanaLangSet map[string]bool
-
-func init() {
-	arcanaLangSet = make(map[string]bool, len(allLangs)*2)
-	for _, l := range allLangs {
-		arcanaLangSet[l.iso3] = true
-		arcanaLangSet[l.iso1] = true
-	}
-}
-
-func langSetForModel(modelID string) map[string]bool {
-	if IsMistModel(modelID) {
-		return mistLangSet
-	}
-	if modelID == ModelIDArcanaV2 {
-		return arcanaV2LangSet
-	}
-	return arcanaLangSet
-}
-
-func IsValidLang(lang string, modelID string) bool {
-	return langSetForModel(modelID)[lang]
-}
-
-func ValidLangsForModel(modelID string) []string {
-	set := langSetForModel(modelID)
-	langs := make([]string, 0, len(set))
-	for k := range set {
-		langs = append(langs, k)
-	}
-	sort.Strings(langs)
-	return langs
+	ModelIDGPro:    true,
+	ModelIDOrpheus: true,
+	ModelIDGrok:    true,
 }
 
 type Client struct {
@@ -111,29 +46,29 @@ type Client struct {
 }
 
 type TTSRequest struct {
-	Text    string `json:"text"`
-	Speaker string `json:"speaker"`
-	ModelID string `json:"modelId,omitempty"`
-	Lang    string `json:"lang,omitempty"`
+	Model          string  `json:"model"`
+	Input          string  `json:"input"`
+	Voice          string  `json:"voice"`
+	ResponseFormat string  `json:"response_format,omitempty"`
+	Style          *string `json:"style,omitempty"`
+	Seed           *int    `json:"seed,omitempty"`
 
-	// Arcana/ArcanaV2 specific
-	RepetitionPenalty *float64 `json:"repetition_penalty,omitempty"`
-	Temperature       *float64 `json:"temperature,omitempty"`
-	TopP              *float64 `json:"top_p,omitempty"`
-	MaxTokens         *int     `json:"max_tokens,omitempty"`
-
-	// Both model families
-	SamplingRate *int     `json:"samplingRate,omitempty"`
-	SpeedAlpha   *float64 `json:"speedAlpha,omitempty"`
-
-	// Mist/MistV2/MistV3
-	PauseBetweenBrackets     *bool   `json:"pauseBetweenBrackets,omitempty"`
-	PhonemizeBetweenBrackets *bool   `json:"phonemizeBetweenBrackets,omitempty"`
-	InlineSpeedAlpha         *string `json:"inlineSpeedAlpha,omitempty"`
-
-	// Mist/MistV2 only
-	NoTextNormalization *bool `json:"noTextNormalization,omitempty"`
-	SaveOovs            *bool `json:"saveOovs,omitempty"`
+	// Legacy JSON fields retained so older tests and unused code still compile.
+	Text                     string   `json:"text,omitempty"`
+	Speaker                  string   `json:"speaker,omitempty"`
+	ModelID                  string   `json:"modelId,omitempty"`
+	Lang                     string   `json:"lang,omitempty"`
+	RepetitionPenalty        *float64 `json:"repetition_penalty,omitempty"`
+	Temperature              *float64 `json:"temperature,omitempty"`
+	TopP                     *float64 `json:"top_p,omitempty"`
+	MaxTokens                *int     `json:"max_tokens,omitempty"`
+	SamplingRate             *int     `json:"samplingRate,omitempty"`
+	SpeedAlpha               *float64 `json:"speedAlpha,omitempty"`
+	PauseBetweenBrackets     *bool    `json:"pauseBetweenBrackets,omitempty"`
+	PhonemizeBetweenBrackets *bool    `json:"phonemizeBetweenBrackets,omitempty"`
+	InlineSpeedAlpha         *string  `json:"inlineSpeedAlpha,omitempty"`
+	NoTextNormalization      *bool    `json:"noTextNormalization,omitempty"`
+	SaveOovs                 *bool    `json:"saveOovs,omitempty"`
 }
 
 type TTSOptions struct {
@@ -141,25 +76,31 @@ type TTSOptions struct {
 	ModelID     string
 	Lang        string
 	AudioFormat string
+	Style       *string
+	Seed        *int
 
-	// Arcana/ArcanaV2 specific
-	RepetitionPenalty *float64
-	Temperature       *float64
-	TopP              *float64
-	MaxTokens         *int
-
-	// Both model families
-	SamplingRate *int
-	SpeedAlpha   *float64
-
-	// Mist/MistV2/MistV3
+	// Legacy fields retained for compile compatibility.
+	RepetitionPenalty        *float64
+	Temperature              *float64
+	TopP                     *float64
+	MaxTokens                *int
+	SamplingRate             *int
+	SpeedAlpha               *float64
 	PauseBetweenBrackets     *bool
 	PhonemizeBetweenBrackets *bool
 	InlineSpeedAlpha         *string
+	NoTextNormalization      *bool
+	SaveOovs                 *bool
+}
 
-	// Mist/MistV2 only
-	NoTextNormalization *bool
-	SaveOovs            *bool
+type speechResponse struct {
+	URL string `json:"url"`
+}
+
+type apiErrorEnvelope struct {
+	Error struct {
+		Message string `json:"message"`
+	} `json:"error"`
 }
 
 func IsValidModelID(modelID string) bool {
@@ -183,110 +124,47 @@ func IsMistModel(modelID string) bool {
 	return modelID == ModelIDMist || modelID == ModelIDMistV2 || modelID == ModelIDMistV3
 }
 
-var validArcanaRates = map[int]bool{
-	8000: true, 16000: true, 22050: true, 24000: true,
-	44100: true, 48000: true, 96000: true,
+func IsValidLang(_ string, _ string) bool {
+	return true
+}
+
+func ValidLangsForModel(_ string) []string {
+	return nil
 }
 
 func ValidateModelParams(opts *TTSOptions) error {
 	if opts == nil {
 		return nil
 	}
-	modelID := opts.ModelID
-
-	// Arcana-only params
-	if opts.Temperature != nil {
-		if !IsArcanaModel(modelID) {
-			return fmt.Errorf("--temperature is only supported for arcana/arcanav2/arcanav3 models")
-		}
-		if *opts.Temperature < 0 || *opts.Temperature > 1 {
-			return fmt.Errorf("--temperature must be between 0 and 1, got %g", *opts.Temperature)
-		}
+	if opts.ModelID == "" {
+		return fmt.Errorf("model is required")
 	}
-	if opts.TopP != nil {
-		if !IsArcanaModel(modelID) {
-			return fmt.Errorf("--top-p is only supported for arcana/arcanav2/arcanav3 models")
-		}
-		if *opts.TopP < 0 || *opts.TopP > 1 {
-			return fmt.Errorf("--top-p must be between 0 and 1, got %g", *opts.TopP)
-		}
+	if !IsValidModelID(opts.ModelID) {
+		return fmt.Errorf("invalid model: %s (valid options: %s)", opts.ModelID, strings.Join(ValidModelIDs(), ", "))
 	}
-	if opts.RepetitionPenalty != nil {
-		if !IsArcanaModel(modelID) {
-			return fmt.Errorf("--repetition-penalty is only supported for arcana/arcanav2/arcanav3 models")
-		}
-		if *opts.RepetitionPenalty < 1 || *opts.RepetitionPenalty > 2 {
-			return fmt.Errorf("--repetition-penalty must be between 1 and 2, got %g", *opts.RepetitionPenalty)
-		}
+	if format := normalizeResponseFormat(opts.AudioFormat); format != "" && format != "wav" && format != "mp3" {
+		return fmt.Errorf("unsupported format: %s (supported: wav, mp3)", opts.AudioFormat)
 	}
-	if opts.MaxTokens != nil {
-		if !IsArcanaModel(modelID) {
-			return fmt.Errorf("--max-tokens is only supported for arcana/arcanav2/arcanav3 models")
-		}
-		if *opts.MaxTokens < 200 || *opts.MaxTokens > 5000 {
-			return fmt.Errorf("--max-tokens must be between 200 and 5000, got %d", *opts.MaxTokens)
-		}
-	}
-
-	// Bracket params: mist/mistv2/mistv3
-	if opts.PauseBetweenBrackets != nil && !IsMistModel(modelID) {
-		return fmt.Errorf("--pause-between-brackets is only supported for mist models")
-	}
-	if opts.PhonemizeBetweenBrackets != nil && !IsMistModel(modelID) {
-		return fmt.Errorf("--phonemize-between-brackets is only supported for mist models")
-	}
-
-	// InlineSpeedAlpha: all mist models
-	if opts.InlineSpeedAlpha != nil && !IsMistModel(modelID) {
-		return fmt.Errorf("--inline-speed-alpha is only supported for mist models")
-	}
-
-	// Mist/MistV2-only params (not supported by mistv3)
-	isMistV1V2 := modelID == ModelIDMist || modelID == ModelIDMistV2
-	if opts.NoTextNormalization != nil && !isMistV1V2 {
-		return fmt.Errorf("--no-text-normalization is only supported for mist/mistv2 models")
-	}
-	if opts.SaveOovs != nil && !isMistV1V2 {
-		return fmt.Errorf("--save-oovs is only supported for mist/mistv2 models")
-	}
-
-	// Shared params with model-specific validation
-	if opts.SpeedAlpha != nil && *opts.SpeedAlpha <= 0 {
-		return fmt.Errorf("--speed-alpha must be greater than 0, got %g", *opts.SpeedAlpha)
-	}
-	if opts.SamplingRate != nil {
-		rate := *opts.SamplingRate
-		if IsArcanaModel(modelID) {
-			if !validArcanaRates[rate] {
-				return fmt.Errorf("--sampling-rate for arcana/arcanav2/arcanav3 must be one of 8000, 16000, 22050, 24000, 44100, 48000, 96000; got %d", rate)
-			}
-		} else if IsMistModel(modelID) {
-			if rate < 4000 || rate > 44100 {
-				return fmt.Errorf("--sampling-rate for mist/mistv2/mistv3 must be between 4000 and 44100, got %d", rate)
-			}
-		}
-	}
-
 	return nil
 }
 
 func GetAudioFormat(modelID string) string {
-	if modelID == ModelIDMist || modelID == ModelIDMistV2 {
-		return "audio/mp3"
+	if modelID == ModelIDGPro {
+		return "audio/wav"
 	}
-	return "audio/wav"
+	return "audio/mp3"
 }
 
 func GetAPIURL() string {
-	if url := os.Getenv("RIME_API_URL"); url != "" {
-		return url
+	if value := os.Getenv("SEXYVOICE_API_URL"); value != "" {
+		return value
 	}
 	return defaultAPIBaseURL
 }
 
 func GetDashboardURL() string {
-	if url := os.Getenv("RIME_DASHBOARD_URL"); url != "" {
-		return url
+	if value := os.Getenv("SEXYVOICE_DASHBOARD_URL"); value != "" {
+		return value
 	}
 	return defaultDashboardURL
 }
@@ -300,112 +178,45 @@ type ClientOptions struct {
 }
 
 func NewClient(opts ClientOptions) *Client {
-	userAgent := UserAgent(opts.Version)
-	url := opts.APIURL
-	if url == "" {
-		url = GetAPIURL()
+	client := &http.Client{}
+	if opts.Timeout > 0 {
+		client.Timeout = opts.Timeout
 	}
+
+	baseURL := opts.APIURL
+	if baseURL == "" {
+		baseURL = GetAPIURL()
+	}
+
 	authPrefix := opts.AuthHeaderPrefix
 	if authPrefix == "" {
-		if prefix := os.Getenv("RIME_AUTH_HEADER_PREFIX"); prefix != "" {
-			authPrefix = prefix
+		if envPrefix := os.Getenv("SEXYVOICE_AUTH_HEADER_PREFIX"); envPrefix != "" {
+			authPrefix = envPrefix
 		} else {
 			authPrefix = "Bearer"
 		}
 	}
-	httpClient := &http.Client{}
-	if opts.Timeout > 0 {
-		httpClient.Timeout = opts.Timeout
-	}
+
 	return &Client{
-		baseURL:          url,
+		baseURL:          baseURL,
 		apiKey:           opts.APIKey,
 		authHeaderPrefix: authPrefix,
-		userAgent:        userAgent,
-		client:           httpClient,
+		userAgent:        UserAgent(opts.Version),
+		client:           client,
 	}
 }
 
 func (c *Client) TTS(text string, opts *TTSOptions) ([]byte, error) {
-	if opts == nil || opts.Speaker == "" {
-		return nil, fmt.Errorf("speaker is required")
-	}
-	if opts.ModelID == "" {
-		return nil, fmt.Errorf("modelId is required")
-	}
-	if !IsValidModelID(opts.ModelID) {
-		return nil, fmt.Errorf("invalid modelId: %s (valid options: %s)", opts.ModelID, strings.Join(ValidModelIDs(), ", "))
-	}
-	if err := ValidateModelParams(opts); err != nil {
+	result, err := c.TTSStream(text, opts)
+	if err != nil {
 		return nil, err
 	}
+	defer result.Body.Close()
 
-	reqBody := TTSRequest{
-		Text:    text,
-		Speaker: opts.Speaker,
-		ModelID: opts.ModelID,
-		Lang:    opts.Lang,
-
-		RepetitionPenalty:        opts.RepetitionPenalty,
-		Temperature:              opts.Temperature,
-		TopP:                     opts.TopP,
-		MaxTokens:                opts.MaxTokens,
-		SamplingRate:             opts.SamplingRate,
-		SpeedAlpha:               opts.SpeedAlpha,
-		PauseBetweenBrackets:     opts.PauseBetweenBrackets,
-		PhonemizeBetweenBrackets: opts.PhonemizeBetweenBrackets,
-		InlineSpeedAlpha:         opts.InlineSpeedAlpha,
-		NoTextNormalization:      opts.NoTextNormalization,
-		SaveOovs:                 opts.SaveOovs,
-	}
-
-	jsonBody, err := json.Marshal(reqBody)
+	audio, err := io.ReadAll(result.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to read downloaded audio: %w", err)
 	}
-
-	audioFormat := opts.AudioFormat
-	if audioFormat == "" {
-		audioFormat = GetAudioFormat(opts.ModelID)
-	}
-
-	req, err := http.NewRequest("POST", c.baseURL, bytes.NewReader(jsonBody))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", audioFormat)
-	if c.apiKey != "" && c.authHeaderPrefix != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("%s %s", c.authHeaderPrefix, c.apiKey))
-	}
-	req.Header.Set("User-Agent", c.userAgent)
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		switch resp.StatusCode {
-		case http.StatusUnauthorized:
-			return nil, fmt.Errorf("authentication failed: invalid API key")
-		case http.StatusBadRequest:
-			return nil, fmt.Errorf("invalid request: %s", string(body))
-		case http.StatusTooManyRequests:
-			return nil, fmt.Errorf("rate limited: too many requests")
-		default:
-			return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-		}
-	}
-
-	audio, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
 	return audio, nil
 }
 
@@ -416,120 +227,110 @@ type TTSStreamResult struct {
 }
 
 func (c *Client) TTSStream(text string, opts *TTSOptions) (*TTSStreamResult, error) {
-	if opts == nil || opts.Speaker == "" {
-		return nil, fmt.Errorf("speaker is required")
+	if opts == nil || strings.TrimSpace(opts.Speaker) == "" {
+		return nil, fmt.Errorf("voice is required")
 	}
-	if opts.ModelID == "" {
-		return nil, fmt.Errorf("modelId is required")
-	}
-	if !IsValidModelID(opts.ModelID) {
-		return nil, fmt.Errorf("invalid modelId: %s (modelId should be one of: %s)", opts.ModelID, strings.Join(ValidModelIDs(), ", "))
+	if strings.TrimSpace(text) == "" {
+		return nil, fmt.Errorf("input text is required")
 	}
 	if err := ValidateModelParams(opts); err != nil {
 		return nil, err
 	}
 
-	reqBody := TTSRequest{
-		Text:    text,
-		Speaker: opts.Speaker,
-		ModelID: opts.ModelID,
-		Lang:    opts.Lang,
-
-		RepetitionPenalty:        opts.RepetitionPenalty,
-		Temperature:              opts.Temperature,
-		TopP:                     opts.TopP,
-		MaxTokens:                opts.MaxTokens,
-		SamplingRate:             opts.SamplingRate,
-		SpeedAlpha:               opts.SpeedAlpha,
-		PauseBetweenBrackets:     opts.PauseBetweenBrackets,
-		PhonemizeBetweenBrackets: opts.PhonemizeBetweenBrackets,
-		InlineSpeedAlpha:         opts.InlineSpeedAlpha,
-		NoTextNormalization:      opts.NoTextNormalization,
-		SaveOovs:                 opts.SaveOovs,
-	}
-
-	jsonBody, err := json.Marshal(reqBody)
+	reqBody, err := json.Marshal(TTSRequest{
+		Model:          opts.ModelID,
+		Input:          text,
+		Voice:          opts.Speaker,
+		ResponseFormat: normalizeResponseFormat(opts.AudioFormat),
+		Style:          opts.Style,
+		Seed:           opts.Seed,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", c.baseURL, bytes.NewReader(jsonBody))
+	req, err := http.NewRequest(http.MethodPost, c.baseURL, bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
-	audioFormat := opts.AudioFormat
-	if audioFormat == "" {
-		audioFormat = GetAudioFormat(opts.ModelID)
-	}
-
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", audioFormat)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", c.userAgent)
 	if c.apiKey != "" && c.authHeaderPrefix != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("%s %s", c.authHeaderPrefix, c.apiKey))
 	}
-	req.Header.Set("User-Agent", c.userAgent)
 
 	start := time.Now()
 	resp, err := c.client.Do(req)
 	ttfb := time.Since(start)
-
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
+	defer resp.Body.Close()
+
+	respData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read API response: %w", err)
+	}
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		switch resp.StatusCode {
-		case http.StatusUnauthorized:
-			return nil, fmt.Errorf("authentication failed: invalid API key")
-		case http.StatusBadRequest:
-			return nil, fmt.Errorf("invalid request: %s", string(body))
-		case http.StatusTooManyRequests:
-			return nil, fmt.Errorf("rate limited: too many requests")
-		default:
-			return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-		}
+		return nil, fmt.Errorf(apiErrorFromResponse(resp.StatusCode, respData))
 	}
 
-	// To detect empty responses to streaming TTS requests, we can't just check the
-	// ContentLength, because it is unknown (-1) so we need to peek at the first byte.
-	peekBuf := make([]byte, 1)
-	n, err := resp.Body.Read(peekBuf)
-
-	// If the first byte is EOF, the response is empty and we return an error.
-	if err == io.EOF && n == 0 {
-		resp.Body.Close()
-		// formatted to say that speaker {speaker} and language {language} are valid for modelId {modelId}
-		return nil, fmt.Errorf("invalid request: server returned empty response. Please double-check that speaker '%s' and language '%s' are valid for modelId '%s'", opts.Speaker, opts.Lang, opts.ModelID)
+	var speechResp speechResponse
+	if err := json.Unmarshal(respData, &speechResp); err != nil {
+		return nil, fmt.Errorf("failed to parse API response: %w", err)
+	}
+	if speechResp.URL == "" {
+		return nil, fmt.Errorf("API response did not include an audio URL")
 	}
 
-	contentType := resp.Header.Get("Content-Type")
+	downloadReq, err := http.NewRequest(http.MethodGet, speechResp.URL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create audio download request: %w", err)
+	}
+	downloadReq.Header.Set("User-Agent", c.userAgent)
+
+	downloadResp, err := c.client.Do(downloadReq)
+	if err != nil {
+		return nil, fmt.Errorf("audio download failed: %w", err)
+	}
+	defer downloadResp.Body.Close()
+
+	if downloadResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(downloadResp.Body)
+		return nil, fmt.Errorf("audio download failed with status %d: %s", downloadResp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	audioData, err := io.ReadAll(downloadResp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read downloaded audio: %w", err)
+	}
+
+	contentType := downloadResp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = inferContentTypeFromURL(speechResp.URL, opts)
+	}
+
 	return &TTSStreamResult{
-		// Since we've consumed a byte, we reconstruct the stream using MultiReader
-		// so downstream code can read the full response including the peeked byte.
-		Body:        io.NopCloser(io.MultiReader(bytes.NewReader(peekBuf[:n]), resp.Body)),
+		Body:        io.NopCloser(bytes.NewReader(audioData)),
 		ContentType: contentType,
 		TTFB:        ttfb,
 	}, nil
 }
 
-// ValidateAPIKey confirms the API key is valid using the lightweight OOV
-// (out-of-vocabulary) endpoint. No TTS credits are consumed.
 func (c *Client) ValidateAPIKey() error {
-	body := bytes.NewBufferString(`{"text":"cli"}`)
-	req, err := http.NewRequest("POST", oovURL, body)
+	validateURL := strings.TrimSuffix(strings.TrimSuffix(c.baseURL, "/"), "/speech") + "/models"
+
+	req, err := http.NewRequest(http.MethodGet, validateURL, nil)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
-
-	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", c.userAgent)
 	if c.apiKey != "" && c.authHeaderPrefix != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("%s %s", c.authHeaderPrefix, c.apiKey))
 	}
-	req.Header.Set("User-Agent", c.userAgent)
 
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -537,14 +338,13 @@ func (c *Client) ValidateAPIKey() error {
 	}
 	defer resp.Body.Close()
 
+	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode == http.StatusUnauthorized {
 		return fmt.Errorf("authentication failed: invalid API key")
 	}
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error %d: %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf(apiErrorFromResponse(resp.StatusCode, body))
 	}
-
 	return nil
 }
 
@@ -552,8 +352,65 @@ func EffectiveOpts(opts *TTSOptions) (speaker, modelId, lang string) {
 	speaker = opts.Speaker
 	modelId = opts.ModelID
 	lang = opts.Lang
-	if lang == "" {
-		lang = "eng"
-	}
 	return
+}
+
+func normalizeResponseFormat(value string) string {
+	switch strings.TrimSpace(strings.ToLower(value)) {
+	case "", "audio/wav":
+		if strings.TrimSpace(strings.ToLower(value)) == "audio/wav" {
+			return "wav"
+		}
+		return ""
+	case "wav":
+		return "wav"
+	case "audio/mp3", "audio/mpeg":
+		return "mp3"
+	case "mp3":
+		return "mp3"
+	default:
+		return strings.TrimSpace(strings.ToLower(value))
+	}
+}
+
+func inferContentTypeFromURL(rawURL string, opts *TTSOptions) string {
+	parsed, err := url.Parse(rawURL)
+	if err == nil {
+		switch strings.ToLower(path.Ext(parsed.Path)) {
+		case ".wav":
+			return "audio/wav"
+		case ".mp3":
+			return "audio/mp3"
+		}
+	}
+
+	if format := normalizeResponseFormat(opts.AudioFormat); format == "wav" {
+		return "audio/wav"
+	} else if format == "mp3" {
+		return "audio/mp3"
+	}
+	return GetAudioFormat(opts.ModelID)
+}
+
+func apiErrorFromResponse(statusCode int, body []byte) string {
+	var envelope apiErrorEnvelope
+	if err := json.Unmarshal(body, &envelope); err == nil && envelope.Error.Message != "" {
+		if statusCode == http.StatusUnauthorized {
+			return "authentication failed: invalid API key"
+		}
+		return envelope.Error.Message
+	}
+
+	switch statusCode {
+	case http.StatusUnauthorized:
+		return "authentication failed: invalid API key"
+	case http.StatusTooManyRequests:
+		return "rate limited: too many requests"
+	default:
+		trimmed := strings.TrimSpace(string(body))
+		if trimmed == "" {
+			return fmt.Sprintf("API error %d", statusCode)
+		}
+		return fmt.Sprintf("API error %d: %s", statusCode, trimmed)
+	}
 }

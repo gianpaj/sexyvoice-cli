@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rimelabs/rime-cli/internal/output/styles"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/styles"
 )
 
 func NewUninstallCmd() *cobra.Command {
@@ -17,8 +17,8 @@ func NewUninstallCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "uninstall",
-		Short: "Remove the Rime CLI and all configuration",
-		Long:  "Removes the Rime CLI binary, configuration, and shell PATH setup",
+		Short: "Remove the SexyVoice CLI and all configuration",
+		Long:  "Removes the SexyVoice CLI binary, configuration, and shell PATH setup",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runUninstall(yes)
@@ -42,12 +42,12 @@ func runUninstall(yes bool) error {
 	}
 
 	if isHomebrewInstall(execPath) {
-		fmt.Println(styles.Info("Rime was installed via Homebrew."))
-		fmt.Println(styles.Dim("To uninstall, run: brew uninstall rime"))
+		fmt.Println(styles.Info("SexyVoice was installed via Homebrew."))
+		fmt.Println(styles.Dim("To uninstall, run: brew uninstall sexyvoice-cli"))
 		return nil
 	}
 
-	// Derive install dir from binary location: ~/.rime/bin/rime -> ~/.rime
+	// Derive install dir from binary location: ~/.sexyvoice/bin/sexyvoice -> ~/.sexyvoice
 	installDir := filepath.Dir(filepath.Dir(execPath))
 
 	shSourceLine := fmt.Sprintf(`. "%s/env.sh"`, installDir)
@@ -79,7 +79,7 @@ func runUninstall(yes bool) error {
 		if fileContains(path, line) {
 			tilde := tildifyPath(home, path)
 			actions = append(actions, uninstallAction{
-				description: fmt.Sprintf("Remove rime source line from %s", tilde),
+				description: fmt.Sprintf("Remove sexyvoice source line from %s", tilde),
 				execute: func() error {
 					return removeLineFromFile(path, line)
 				},
@@ -134,7 +134,7 @@ func runUninstall(yes bool) error {
 	}
 
 	fmt.Println()
-	fmt.Println(styles.Dim("Rime CLI removed."))
+	fmt.Println(styles.Dim("SexyVoice CLI removed."))
 
 	return nil
 }
@@ -156,7 +156,7 @@ func fileContains(path, substr string) bool {
 }
 
 // removeLineFromFile removes lines containing substr (and any immediately
-// preceding "# rime" comment line) from the file at path.
+// preceding "# sexyvoice" comment line) from the file at path.
 func removeLineFromFile(path, substr string) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
@@ -168,8 +168,8 @@ func removeLineFromFile(path, substr string) error {
 
 	for _, line := range lines {
 		if strings.Contains(line, substr) {
-			// Also remove a preceding "# rime" comment if present
-			if len(filtered) > 0 && strings.TrimSpace(filtered[len(filtered)-1]) == "# rime" {
+			// Also remove a preceding "# sexyvoice" comment if present.
+			if len(filtered) > 0 && strings.TrimSpace(filtered[len(filtered)-1]) == "# sexyvoice" {
 				filtered = filtered[:len(filtered)-1]
 			}
 			// And remove the preceding blank line we added during install

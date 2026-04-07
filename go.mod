@@ -1,4 +1,4 @@
-module github.com/rimelabs/rime-cli
+module github.com/gianpaj/sexyvoice-cli
 
 go 1.21.0
 

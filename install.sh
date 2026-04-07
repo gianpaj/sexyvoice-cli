@@ -101,7 +101,7 @@ case "$platform" in
   target=linux-amd64
   ;;
 *)
-  error "Unsupported platform: $platform. Rime CLI supports macOS (x86_64, arm64) and Linux (x86_64)."
+  error "Unsupported platform: $platform. SexyVoice CLI supports macOS (x86_64, arm64) and Linux (x86_64)."
   ;;
 esac
 
@@ -109,26 +109,26 @@ if [ "$target" = "darwin-amd64" ]; then
   translated="$(sysctl -n sysctl.proc_translated 2>/dev/null || true)"
   if [ "$translated" = "1" ]; then
     target=darwin-arm64
-    info "Your shell is running in Rosetta 2. Downloading rime for $target instead."
+    info "Your shell is running in Rosetta 2. Downloading sexyvoice for $target instead."
   fi
 fi
 
 # ── Paths & URLs ──────────────────────────────────────────────────────────────
 
-github_repo='https://github.com/rimelabs/rime-cli'
+github_repo='https://github.com/gianpaj/sexyvoice-cli'
 
 if [ -z "$VERSION" ]; then
-  rime_uri=$github_repo/releases/latest/download/rime-$target.tar.gz
+  release_url=$github_repo/releases/latest/download/sexyvoice-$target.tar.gz
 else
-  rime_uri=$github_repo/releases/download/$VERSION/rime-$target.tar.gz
+  release_url=$github_repo/releases/download/$VERSION/sexyvoice-$target.tar.gz
 fi
 
-install_dir=${RIME_INSTALL:-$HOME/.rime}
+install_dir=${SEXYVOICE_INSTALL:-$HOME/.sexyvoice}
 bin_dir=$install_dir/bin
-exe=$bin_dir/rime
-tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/rime-install.XXXXXX")" ||
+exe=$bin_dir/sexyvoice
+tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/sexyvoice-install.XXXXXX")" ||
   error "Failed to create temporary directory"
-tarball=$tmp_dir/rime.tar.gz
+tarball=$tmp_dir/sexyvoice.tar.gz
 
 # ── Cleanup trap ──────────────────────────────────────────────────────────────
 
@@ -141,16 +141,16 @@ trap cleanup EXIT
 # ── Welcome ───────────────────────────────────────────────────────────────────
 
 echo
-printf '%b\n' "${Bold_White}Installing Rime CLI...${Color_Off}"
+printf '%b\n' "${Bold_White}Installing SexyVoice CLI...${Color_Off}"
 echo
 
 # ── Snapshot existing state ───────────────────────────────────────────────────
 
 existing_version=''
 already_in_path=false
-if command -v rime >/dev/null 2>&1; then
+if command -v sexyvoice >/dev/null 2>&1; then
   already_in_path=true
-  existing_version=$(rime --version 2>/dev/null | head -1 || true)
+  existing_version=$(sexyvoice --version 2>/dev/null | head -1 || true)
 fi
 
 # ── Download / install ────────────────────────────────────────────────────────
@@ -160,8 +160,8 @@ if [ ! -d "$bin_dir" ]; then
     error "Failed to create install directory \"$bin_dir\""
 fi
 
-curl --fail --location --output "$tarball" "$rime_uri" ||
-  error "Failed to download rime from \"$rime_uri\""
+curl --fail --location --output "$tarball" "$release_url" ||
+  error "Failed to download sexyvoice from \"$release_url\""
 
 tar_entries="$(tar -tzf "$tarball")" ||
   error "Failed to inspect downloaded archive"
@@ -175,7 +175,7 @@ while IFS= read -r entry; do
     ;;
   esac
   case "$entry" in
-  rime | ./rime | */rime)
+  sexyvoice | ./sexyvoice | */sexyvoice)
     has_binary=true
     ;;
   esac
@@ -183,28 +183,28 @@ done <<EOF
 $tar_entries
 EOF
 
-[ "$has_binary" = "true" ] || error "Archive does not contain rime binary"
+[ "$has_binary" = "true" ] || error "Archive does not contain sexyvoice binary"
 
 tar -xzf "$tarball" -C "$tmp_dir" ||
-  error "Failed to extract rime archive"
+  error "Failed to extract sexyvoice archive"
 
 src_exe=''
-if [ -f "$tmp_dir/rime" ]; then
-  src_exe="$tmp_dir/rime"
-elif [ -f "$tmp_dir/bin/rime" ]; then
-  src_exe="$tmp_dir/bin/rime"
+if [ -f "$tmp_dir/sexyvoice" ]; then
+  src_exe="$tmp_dir/sexyvoice"
+elif [ -f "$tmp_dir/bin/sexyvoice" ]; then
+  src_exe="$tmp_dir/bin/sexyvoice"
 else
-  src_exe=$(printf '%s\n' "$tar_entries" | sed -n 's|^\./||; /\/rime$/p; /^rime$/p' | head -1)
-  [ -n "$src_exe" ] || error "Could not locate rime binary in archive"
+  src_exe=$(printf '%s\n' "$tar_entries" | sed -n 's|^\./||; /\/sexyvoice$/p; /^sexyvoice$/p' | head -1)
+  [ -n "$src_exe" ] || error "Could not locate sexyvoice binary in archive"
   src_exe="$tmp_dir/$src_exe"
 fi
 
-[ -f "$src_exe" ] || error "Extracted rime binary is missing"
+[ -f "$src_exe" ] || error "Extracted sexyvoice binary is missing"
 cp "$src_exe" "$exe" ||
-  error "Failed to install rime binary"
+  error "Failed to install sexyvoice binary"
 
 chmod +x "$exe" ||
-  error "Failed to set permissions on rime executable"
+  error "Failed to set permissions on sexyvoice executable"
 
 case "$platform" in
 'Darwin'*)
@@ -217,14 +217,14 @@ esac
 # making uninstall clean (one line to remove)
 
 {
-  echo '# rime'
-  echo "export RIME_INSTALL=\"$install_dir\""
-  echo 'export PATH="$RIME_INSTALL/bin:$PATH"'
+  echo '# sexyvoice'
+  echo "export SEXYVOICE_INSTALL=\"$install_dir\""
+  echo 'export PATH="$SEXYVOICE_INSTALL/bin:$PATH"'
 } >"$install_dir/env.sh"
 
 {
-  echo '# rime'
-  echo "set --export RIME_INSTALL \"$install_dir\""
+  echo '# sexyvoice'
+  echo "set --export SEXYVOICE_INSTALL \"$install_dir\""
   echo "set --export PATH \"$install_dir/bin\" \$PATH"
 } >"$install_dir/env.fish"
 
@@ -233,11 +233,11 @@ esac
 new_version=$("$exe" --version 2>/dev/null | head -1 || true)
 
 if [ -n "$existing_version" ] && [ -n "$new_version" ] && [ "$existing_version" != "$new_version" ]; then
-  success "✓ Upgraded rime  $existing_version → $new_version"
+  success "✓ Upgraded sexyvoice  $existing_version → $new_version"
 elif [ -n "$new_version" ]; then
   success "✓ Installed $new_version"
 else
-  success "✓ Rime CLI installed to $Bold_Green$(tildify "$exe")${Color_Off}"
+  success "✓ SexyVoice CLI installed to $Bold_Green$(tildify "$exe")${Color_Off}"
 fi
 
 echo
@@ -296,7 +296,7 @@ if [ "$already_in_path" = "false" ]; then
         if ! grep -qF "$source_line" "$fish_config" 2>/dev/null; then
           {
             echo
-            echo '# rime'
+            echo '# sexyvoice'
             echo "$source_line"
           } >>"$fish_config"
         fi
@@ -325,7 +325,7 @@ if [ "$already_in_path" = "false" ]; then
         if ! grep -qF "$source_line" "$zsh_config" 2>/dev/null; then
           {
             echo
-            echo '# rime'
+            echo '# sexyvoice'
             echo "$source_line"
           } >>"$zsh_config"
         fi
@@ -372,7 +372,7 @@ if [ "$already_in_path" = "false" ]; then
         if ! grep -qF "$source_line" "$bash_config" 2>/dev/null; then
           {
             echo
-            echo '# rime'
+            echo '# sexyvoice'
             echo "$source_line"
           } >>"$bash_config"
         fi
@@ -392,7 +392,7 @@ if [ "$already_in_path" = "false" ]; then
     ;;
 
   *)
-    echo "  Add rime to your PATH by adding to ~/.bashrc (or similar):"
+    echo "  Add sexyvoice to your PATH by adding to ~/.bashrc (or similar):"
     info_bold "    . \"$install_dir/env.sh\""
     ;;
   esac
@@ -407,21 +407,21 @@ printf '%b\n' "  ${Bold_White}Get started${Color_Off}"
 divider
 echo
 
-if [ -f "$install_dir/rime.toml" ]; then
+if [ -f "$install_dir/sexyvoice.toml" ]; then
   info "  You're already logged in. Run:"
   echo
-  info_bold "    rime --help"
+  info_bold "    sexyvoice --help"
 elif [ -n "$refresh_command" ]; then
   info "  Reload your shell, then log in:"
   echo
   info_bold "    $refresh_command"
-  info_bold "    rime login"
+  info_bold "    sexyvoice login"
 else
   info "  Log in to get started:"
   echo
-  info_bold "    rime login"
+  info_bold "    sexyvoice login"
 fi
 
 echo
-info "  Tip: set up tab completion with ${Bold_White}rime completion --help${Color_Off}"
+info "  Tip: set up tab completion with ${Bold_White}sexyvoice completion --help${Color_Off}"
 echo

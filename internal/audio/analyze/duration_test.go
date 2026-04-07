@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rimelabs/rime-cli/internal/audio/testhelpers"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/testhelpers"
 )
 
 func TestCalculateDuration_ValidWAV(t *testing.T) {

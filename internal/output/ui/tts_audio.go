@@ -8,7 +8,7 @@ import (
 
 	"github.com/gopxl/beep/v2"
 	"github.com/gopxl/beep/v2/speaker"
-	"github.com/rimelabs/rime-cli/internal/audio/analyze"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/analyze"
 )
 
 func (m *TTSModel) startPlayback(format beep.Format, analyzer *analyze.AmplitudeAnalyzer, body io.ReadCloser, playDone chan struct{}) error {

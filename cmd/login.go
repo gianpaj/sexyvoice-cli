@@ -9,11 +9,11 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/rimelabs/rime-cli/internal/api"
-	"github.com/rimelabs/rime-cli/internal/auth"
-	"github.com/rimelabs/rime-cli/internal/config"
-	"github.com/rimelabs/rime-cli/internal/output/styles"
-	"github.com/rimelabs/rime-cli/internal/output/ui"
+	"github.com/gianpaj/sexyvoice-cli/internal/api"
+	"github.com/gianpaj/sexyvoice-cli/internal/auth"
+	"github.com/gianpaj/sexyvoice-cli/internal/config"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/styles"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/ui"
 )
 
 func isAuthError(err error) bool {
@@ -24,8 +24,8 @@ func isAuthError(err error) bool {
 func NewLoginCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "login",
-		Short: "Authenticate with your Rime API key",
-		Long:  "Opens your browser to authenticate with Rime and saves your API key locally",
+		Short: "Authenticate with your SexyVoice API key",
+		Long:  "Opens your browser to authenticate with SexyVoice and saves your API key locally",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if term.IsTerminal(int(os.Stdout.Fd())) {
@@ -54,7 +54,7 @@ func NewLoginCmd() *cobra.Command {
 					return err
 				}
 				fmt.Println(styles.Error("Could not verify API key: " + err.Error()))
-				fmt.Println(styles.Dim("Key saved anyway. Run 'rime hello' to test when ready."))
+				fmt.Println(styles.Dim("Key saved anyway. Run 'sexyvoice tts \"hello\" --voice poe --model-id gpro -o hello.wav' to test when ready."))
 				return nil
 			}
 
@@ -63,7 +63,7 @@ func NewLoginCmd() *cobra.Command {
 			}
 
 			fmt.Println(styles.Success("Logged in successfully!"))
-			fmt.Println(styles.Dim("Try: rime hello"))
+			fmt.Println(styles.Dim("Try: sexyvoice tts \"hello\" --voice poe --model-id gpro -o hello.wav"))
 			return nil
 		},
 	}

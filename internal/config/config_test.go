@@ -12,7 +12,7 @@ func TestSaveAPIKey(t *testing.T) {
 	originalHome := os.Getenv("HOME")
 	defer os.Setenv("HOME", originalHome)
 	os.Setenv("HOME", tmpDir)
-	os.Unsetenv("RIME_CLI_API_KEY")
+	os.Unsetenv(EnvAPIKey)
 
 	apiKey := "test-api-key-12345"
 
@@ -107,11 +107,11 @@ func TestLoadConfig_WithFile(t *testing.T) {
 	}
 
 	configContent := `api_key = "test-key"
-api_url = "https://test.rime.ai/v1/rime-tts"
+api_url = "https://test.sexyvoice.ai/api/v1/speech"
 auth_header_prefix = "Bearer"
 
 [env.test]
-api_url = "https://test-env.rime.ai/v1/rime-tts"
+api_url = "https://test-env.sexyvoice.ai/api/v1/speech"
 api_key = "test-env-key"
 `
 
@@ -134,16 +134,16 @@ api_key = "test-env-key"
 	if cfg.APIKey != "test-key" {
 		t.Errorf("Expected api_key 'test-key', got %q", cfg.APIKey)
 	}
-	if cfg.APIURL != "https://test.rime.ai/v1/rime-tts" {
-		t.Errorf("Expected api_url 'https://test.rime.ai/v1/rime-tts', got %q", cfg.APIURL)
+	if cfg.APIURL != "https://test.sexyvoice.ai/api/v1/speech" {
+		t.Errorf("Expected api_url 'https://test.sexyvoice.ai/api/v1/speech', got %q", cfg.APIURL)
 	}
 
 	testEnv, ok := cfg.Env["test"]
 	if !ok {
 		t.Fatal("Expected 'test' environment to exist")
 	}
-	if testEnv.APIURL != "https://test-env.rime.ai/v1/rime-tts" {
-		t.Errorf("Expected test env api_url 'https://test-env.rime.ai/v1/rime-tts', got %q", testEnv.APIURL)
+	if testEnv.APIURL != "https://test-env.sexyvoice.ai/api/v1/speech" {
+		t.Errorf("Expected test env api_url 'https://test-env.sexyvoice.ai/api/v1/speech', got %q", testEnv.APIURL)
 	}
 	if testEnv.GetAPIKey() != "test-env-key" {
 		t.Errorf("Expected test env api_key 'test-env-key', got %q", testEnv.GetAPIKey())
@@ -158,9 +158,9 @@ func TestResolveEnvironment_Default(t *testing.T) {
 	originalHome := os.Getenv("HOME")
 	defer os.Setenv("HOME", originalHome)
 	os.Setenv("HOME", tmpDir)
-	os.Unsetenv("RIME_API_URL")
-	os.Unsetenv("RIME_CLI_API_KEY")
-	os.Unsetenv("RIME_AUTH_HEADER_PREFIX")
+	os.Unsetenv(EnvAPIURL)
+	os.Unsetenv(EnvAPIKey)
+	os.Unsetenv(EnvAuthHeaderPrefix)
 
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -189,9 +189,9 @@ func TestResolveEnvironment_WithConfig(t *testing.T) {
 	originalHome := os.Getenv("HOME")
 	defer os.Setenv("HOME", originalHome)
 	os.Setenv("HOME", tmpDir)
-	os.Unsetenv("RIME_API_URL")
-	os.Unsetenv("RIME_CLI_API_KEY")
-	os.Unsetenv("RIME_AUTH_HEADER_PREFIX")
+	os.Unsetenv(EnvAPIURL)
+	os.Unsetenv(EnvAPIKey)
+	os.Unsetenv(EnvAuthHeaderPrefix)
 
 	configPath, err := ConfigFilePath()
 	if err != nil {
@@ -199,11 +199,11 @@ func TestResolveEnvironment_WithConfig(t *testing.T) {
 	}
 
 	configContent := `api_key = "global-key"
-api_url = "https://global.rime.ai/v1/rime-tts"
+api_url = "https://global.sexyvoice.ai/api/v1/speech"
 auth_header_prefix = "Api-Key"
 
 [env.custom]
-api_url = "https://custom.rime.ai/v1/rime-tts"
+api_url = "https://custom.sexyvoice.ai/api/v1/speech"
 api_key = "custom-key"
 auth_header_prefix = "Bearer"
 `
@@ -226,8 +226,8 @@ auth_header_prefix = "Bearer"
 		t.Fatalf("ResolveEnvironment failed: %v", err)
 	}
 
-	if env.APIURL != "https://custom.rime.ai/v1/rime-tts" {
-		t.Errorf("Expected APIURL 'https://custom.rime.ai/v1/rime-tts', got %q", env.APIURL)
+	if env.APIURL != "https://custom.sexyvoice.ai/api/v1/speech" {
+		t.Errorf("Expected APIURL 'https://custom.sexyvoice.ai/api/v1/speech', got %q", env.APIURL)
 	}
 	if env.GetAPIKey() != "custom-key" {
 		t.Errorf("Expected APIKey 'custom-key', got %q", env.GetAPIKey())
@@ -266,9 +266,9 @@ func TestResolveConfig(t *testing.T) {
 	originalHome := os.Getenv("HOME")
 	defer os.Setenv("HOME", originalHome)
 	os.Setenv("HOME", tmpDir)
-	os.Unsetenv("RIME_API_URL")
-	os.Unsetenv("RIME_CLI_API_KEY")
-	os.Unsetenv("RIME_AUTH_HEADER_PREFIX")
+	os.Unsetenv(EnvAPIURL)
+	os.Unsetenv(EnvAPIKey)
+	os.Unsetenv(EnvAuthHeaderPrefix)
 
 	resolved, err := ResolveConfig("default", "")
 	if err != nil {
@@ -288,11 +288,11 @@ func TestResolveConfig_WithOverride(t *testing.T) {
 	originalHome := os.Getenv("HOME")
 	defer os.Setenv("HOME", originalHome)
 	os.Setenv("HOME", tmpDir)
-	os.Unsetenv("RIME_API_URL")
-	os.Unsetenv("RIME_CLI_API_KEY")
-	os.Unsetenv("RIME_AUTH_HEADER_PREFIX")
+	os.Unsetenv(EnvAPIURL)
+	os.Unsetenv(EnvAPIKey)
+	os.Unsetenv(EnvAuthHeaderPrefix)
 
-	overrideURL := "https://override.rime.ai/v1/rime-tts"
+	overrideURL := "https://override.sexyvoice.ai/api/v1/speech"
 	resolved, err := ResolveConfig("default", overrideURL)
 	if err != nil {
 		t.Fatalf("ResolveConfig failed: %v", err)
@@ -308,10 +308,10 @@ func TestLoadConfigFromPath(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "custom.toml")
 
 	configContent := `api_key = "custom-file-key"
-api_url = "https://custom-file.rime.ai/v1/rime-tts"
+api_url = "https://custom-file.sexyvoice.ai/api/v1/speech"
 
 [env.staging]
-api_url = "https://staging.rime.ai/v1/rime-tts"
+api_url = "https://staging.sexyvoice.ai/api/v1/speech"
 `
 
 	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
@@ -329,8 +329,8 @@ api_url = "https://staging.rime.ai/v1/rime-tts"
 	if cfg.APIKey != "custom-file-key" {
 		t.Errorf("Expected api_key 'custom-file-key', got %q", cfg.APIKey)
 	}
-	if cfg.APIURL != "https://custom-file.rime.ai/v1/rime-tts" {
-		t.Errorf("Expected api_url 'https://custom-file.rime.ai/v1/rime-tts', got %q", cfg.APIURL)
+	if cfg.APIURL != "https://custom-file.sexyvoice.ai/api/v1/speech" {
+		t.Errorf("Expected api_url 'https://custom-file.sexyvoice.ai/api/v1/speech', got %q", cfg.APIURL)
 	}
 }
 
@@ -346,17 +346,17 @@ func TestLoadConfigFromPath_NotFound(t *testing.T) {
 
 func TestResolveConfigWithOptions_CustomFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	os.Unsetenv("RIME_API_URL")
-	os.Unsetenv("RIME_CLI_API_KEY")
-	os.Unsetenv("RIME_AUTH_HEADER_PREFIX")
+	os.Unsetenv(EnvAPIURL)
+	os.Unsetenv(EnvAPIKey)
+	os.Unsetenv(EnvAuthHeaderPrefix)
 
 	configPath := filepath.Join(tmpDir, "myconfig.toml")
 	configContent := `api_key = "file-key"
-api_url = "https://file.rime.ai/v1/rime-tts"
+api_url = "https://file.sexyvoice.ai/api/v1/speech"
 auth_header_prefix = "Api-Key"
 
 [env.prod]
-api_url = "https://prod.rime.ai/v1/rime-tts"
+api_url = "https://prod.sexyvoice.ai/api/v1/speech"
 api_key = "prod-key"
 `
 
@@ -375,8 +375,8 @@ api_key = "prod-key"
 	if resolved.APIKey != "file-key" {
 		t.Errorf("Expected APIKey 'file-key', got %q", resolved.APIKey)
 	}
-	if resolved.APIURL != "https://file.rime.ai/v1/rime-tts" {
-		t.Errorf("Expected APIURL 'https://file.rime.ai/v1/rime-tts', got %q", resolved.APIURL)
+	if resolved.APIURL != "https://file.sexyvoice.ai/api/v1/speech" {
+		t.Errorf("Expected APIURL 'https://file.sexyvoice.ai/api/v1/speech', got %q", resolved.APIURL)
 	}
 	if resolved.AuthHeaderPrefix != "Api-Key" {
 		t.Errorf("Expected AuthHeaderPrefix 'Api-Key', got %q", resolved.AuthHeaderPrefix)
@@ -393,8 +393,8 @@ api_key = "prod-key"
 	if resolved.APIKey != "prod-key" {
 		t.Errorf("Expected APIKey 'prod-key', got %q", resolved.APIKey)
 	}
-	if resolved.APIURL != "https://prod.rime.ai/v1/rime-tts" {
-		t.Errorf("Expected APIURL 'https://prod.rime.ai/v1/rime-tts', got %q", resolved.APIURL)
+	if resolved.APIURL != "https://prod.sexyvoice.ai/api/v1/speech" {
+		t.Errorf("Expected APIURL 'https://prod.sexyvoice.ai/api/v1/speech', got %q", resolved.APIURL)
 	}
 }
 
@@ -418,7 +418,7 @@ func TestSaveEnvironment_NoConfigFile(t *testing.T) {
 	os.Setenv("HOME", tmpDir)
 
 	env := Environment{
-		APIURL: "https://staging.rime.ai/v1/rime-tts",
+		APIURL: "https://staging.sexyvoice.ai/api/v1/speech",
 	}
 	err := SaveEnvironment("staging", env)
 	if err == nil {
@@ -443,7 +443,7 @@ func TestSaveEnvironment_AddsNewEnv(t *testing.T) {
 		t.Fatalf("Failed to create config dir: %v", err)
 	}
 	initialContent := `api_key = "global-key"
-api_url = "https://users.rime.ai/v1/rime-tts"
+api_url = "https://users.sexyvoice.ai/api/v1/speech"
 `
 	if err := os.WriteFile(configPath, []byte(initialContent), 0600); err != nil {
 		t.Fatalf("Failed to write config: %v", err)
@@ -452,7 +452,7 @@ api_url = "https://users.rime.ai/v1/rime-tts"
 	apiKey := "staging-key"
 	prefix := "Bearer"
 	env := Environment{
-		APIURL:           "https://staging.rime.ai/v1/rime-tts",
+		APIURL:           "https://staging.sexyvoice.ai/api/v1/speech",
 		APIKey:           &apiKey,
 		AuthHeaderPrefix: &prefix,
 	}
@@ -472,8 +472,8 @@ api_url = "https://users.rime.ai/v1/rime-tts"
 	if !ok {
 		t.Fatal("Expected 'staging' environment to exist")
 	}
-	if saved.APIURL != "https://staging.rime.ai/v1/rime-tts" {
-		t.Errorf("Expected APIURL 'https://staging.rime.ai/v1/rime-tts', got %q", saved.APIURL)
+	if saved.APIURL != "https://staging.sexyvoice.ai/api/v1/speech" {
+		t.Errorf("Expected APIURL 'https://staging.sexyvoice.ai/api/v1/speech', got %q", saved.APIURL)
 	}
 	if saved.GetAPIKey() != "staging-key" {
 		t.Errorf("Expected APIKey 'staging-key', got %q", saved.GetAPIKey())
@@ -501,10 +501,10 @@ func TestSaveEnvironment_OverwritesExistingEnv(t *testing.T) {
 		t.Fatalf("Failed to create config dir: %v", err)
 	}
 	initialContent := `api_key = "global-key"
-api_url = "https://users.rime.ai/v1/rime-tts"
+api_url = "https://users.sexyvoice.ai/api/v1/speech"
 
 [env.staging]
-api_url = "https://old-staging.rime.ai/v1/rime-tts"
+api_url = "https://old-staging.sexyvoice.ai/api/v1/speech"
 api_key = "old-key"
 `
 	if err := os.WriteFile(configPath, []byte(initialContent), 0600); err != nil {
@@ -513,7 +513,7 @@ api_key = "old-key"
 
 	newKey := "new-staging-key"
 	env := Environment{
-		APIURL: "https://new-staging.rime.ai/v1/rime-tts",
+		APIURL: "https://new-staging.sexyvoice.ai/api/v1/speech",
 		APIKey: &newKey,
 	}
 	if err := SaveEnvironment("staging", env); err != nil {
@@ -529,7 +529,7 @@ api_key = "old-key"
 	if !ok {
 		t.Fatal("Expected 'staging' environment to exist")
 	}
-	if saved.APIURL != "https://new-staging.rime.ai/v1/rime-tts" {
+	if saved.APIURL != "https://new-staging.sexyvoice.ai/api/v1/speech" {
 		t.Errorf("Expected updated APIURL, got %q", saved.APIURL)
 	}
 	if saved.GetAPIKey() != "new-staging-key" {
@@ -566,13 +566,13 @@ func TestRemoveEnvironment_RemovesEnv(t *testing.T) {
 		t.Fatalf("Failed to create config dir: %v", err)
 	}
 	content := `api_key = "global-key"
-api_url = "https://users.rime.ai/v1/rime-tts"
+api_url = "https://users.sexyvoice.ai/api/v1/speech"
 
 [env.staging]
-api_url = "https://staging.rime.ai/v1/rime-tts"
+api_url = "https://staging.sexyvoice.ai/api/v1/speech"
 
 [env.prod]
-api_url = "https://prod.rime.ai/v1/rime-tts"
+api_url = "https://prod.sexyvoice.ai/api/v1/speech"
 `
 	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
 		t.Fatalf("Failed to write config: %v", err)
@@ -654,9 +654,9 @@ func TestDefaultEnv_Resolution(t *testing.T) {
 	originalHome := os.Getenv("HOME")
 	defer os.Setenv("HOME", originalHome)
 	os.Setenv("HOME", tmpDir)
-	os.Unsetenv("RIME_API_URL")
-	os.Unsetenv("RIME_CLI_API_KEY")
-	os.Unsetenv("RIME_AUTH_HEADER_PREFIX")
+	os.Unsetenv(EnvAPIURL)
+	os.Unsetenv(EnvAPIKey)
+	os.Unsetenv(EnvAuthHeaderPrefix)
 
 	configPath, err := ConfigFilePath()
 	if err != nil {
@@ -670,10 +670,10 @@ func TestDefaultEnv_Resolution(t *testing.T) {
 default_env = "users"
 
 [env.users]
-api_url = "https://users.rime.ai/v1/rime-tts"
+api_url = "https://users.sexyvoice.ai/api/v1/speech"
 
 [env.users-east]
-api_url = "https://users-east.rime.ai/v1/rime-tts"
+api_url = "https://users-east.sexyvoice.ai/api/v1/speech"
 `
 	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
 		t.Fatalf("Failed to write config: %v", err)
@@ -689,7 +689,7 @@ api_url = "https://users-east.rime.ai/v1/rime-tts"
 	if err != nil {
 		t.Fatalf("ResolveEnvironment(default) failed: %v", err)
 	}
-	if env.APIURL != "https://users.rime.ai/v1/rime-tts" {
+	if env.APIURL != "https://users.sexyvoice.ai/api/v1/speech" {
 		t.Errorf("expected users URL, got %q", env.APIURL)
 	}
 }
@@ -747,10 +747,10 @@ func TestListEnvironments_WithDefaultEnv(t *testing.T) {
 default_env = "users"
 
 [env.users]
-api_url = "https://users.rime.ai/v1/rime-tts"
+api_url = "https://users.sexyvoice.ai/api/v1/speech"
 
 [env.users-east]
-api_url = "https://users-east.rime.ai/v1/rime-tts"
+api_url = "https://users-east.sexyvoice.ai/api/v1/speech"
 `
 	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
 		t.Fatalf("Failed to write config: %v", err)
@@ -787,10 +787,10 @@ func TestListEnvironments_WithoutDefaultEnv(t *testing.T) {
 	}
 
 	content := `api_key = "k"
-api_url = "https://users.rime.ai/v1/rime-tts"
+api_url = "https://users.sexyvoice.ai/api/v1/speech"
 
 [env.staging]
-api_url = "https://staging.rime.ai/v1/rime-tts"
+api_url = "https://staging.sexyvoice.ai/api/v1/speech"
 `
 	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
 		t.Fatalf("Failed to write config: %v", err)
@@ -831,10 +831,10 @@ func TestSaveDefaultEnv(t *testing.T) {
 default_env = "users"
 
 [env.users]
-api_url = "https://users.rime.ai/v1/rime-tts"
+api_url = "https://users.sexyvoice.ai/api/v1/speech"
 
 [env.users-east]
-api_url = "https://users-east.rime.ai/v1/rime-tts"
+api_url = "https://users-east.sexyvoice.ai/api/v1/speech"
 `
 	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
 		t.Fatalf("Failed to write config: %v", err)
@@ -919,7 +919,7 @@ func TestSaveEnvironment_FilePermissions(t *testing.T) {
 		t.Fatalf("Failed to write config: %v", err)
 	}
 
-	env := Environment{APIURL: "https://test.rime.ai/v1/rime-tts"}
+	env := Environment{APIURL: "https://test.sexyvoice.ai/api/v1/speech"}
 	if err := SaveEnvironment("test", env); err != nil {
 		t.Fatalf("SaveEnvironment failed: %v", err)
 	}

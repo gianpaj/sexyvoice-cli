@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/rimelabs/rime-cli/internal/audio/testhelpers"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/testhelpers"
 )
 
 func TestDecodeStreaming_ValidWAV(t *testing.T) {

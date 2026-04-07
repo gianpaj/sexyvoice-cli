@@ -7,45 +7,39 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rimelabs/rime-cli/internal/api"
-	"github.com/rimelabs/rime-cli/internal/config"
+	"github.com/gianpaj/sexyvoice-cli/internal/api"
+	"github.com/gianpaj/sexyvoice-cli/internal/config"
 )
 
 type CurlOptions struct {
 	Text       string
-	Speaker    string
+	Voice      string
 	ModelID    string
-	Lang       string
+	Format     string
 	Oneline    bool
 	APIURL     string
 	AuthPrefix string
+
+	// Legacy fields retained so older tests still compile.
+	Speaker string
+	Lang    string
 }
 
-func audioFormatToExt(acceptHeader string) string {
-	if acceptHeader == "audio/mp3" {
+func audioFormatToExt(format string) string {
+	if format == "audio/mp3" || format == "audio/mpeg" || format == "mp3" {
 		return "mp3"
 	}
 	return "wav"
 }
 
-func generateCurlCommand(opts CurlOptions, modelOpts *api.TTSOptions) (string, error) {
+func generateCurlCommand(opts CurlOptions, ttsOpts *api.TTSOptions) (string, error) {
 	reqBody := api.TTSRequest{
-		Text:    opts.Text,
-		Speaker: opts.Speaker,
-		ModelID: opts.ModelID,
-		Lang:    opts.Lang,
-
-		RepetitionPenalty:        modelOpts.RepetitionPenalty,
-		Temperature:              modelOpts.Temperature,
-		TopP:                     modelOpts.TopP,
-		MaxTokens:                modelOpts.MaxTokens,
-		SamplingRate:             modelOpts.SamplingRate,
-		SpeedAlpha:               modelOpts.SpeedAlpha,
-		PauseBetweenBrackets:     modelOpts.PauseBetweenBrackets,
-		PhonemizeBetweenBrackets: modelOpts.PhonemizeBetweenBrackets,
-		InlineSpeedAlpha:         modelOpts.InlineSpeedAlpha,
-		NoTextNormalization:      modelOpts.NoTextNormalization,
-		SaveOovs:                 modelOpts.SaveOovs,
+		Model:          opts.ModelID,
+		Input:          opts.Text,
+		Voice:          opts.Voice,
+		ResponseFormat: opts.Format,
+		Style:          ttsOpts.Style,
+		Seed:           ttsOpts.Seed,
 	}
 
 	var jsonBody []byte
@@ -55,7 +49,6 @@ func generateCurlCommand(opts CurlOptions, modelOpts *api.TTSOptions) (string, e
 	} else {
 		jsonBody, err = json.MarshalIndent(reqBody, "", "  ")
 	}
-
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
@@ -70,19 +63,24 @@ func generateCurlCommand(opts CurlOptions, modelOpts *api.TTSOptions) (string, e
 		authPrefix = "Bearer"
 	}
 
-	acceptHeader := api.GetAudioFormat(opts.ModelID)
-	outputFile := "output." + audioFormatToExt(acceptHeader)
+	contentType := api.GetAudioFormat(opts.ModelID)
+	if opts.Format == "wav" {
+		contentType = "audio/wav"
+	} else if opts.Format == "mp3" {
+		contentType = "audio/mp3"
+	}
+	outputFile := "output." + audioFormatToExt(contentType)
 
 	var b strings.Builder
 	jsonStr := strings.ReplaceAll(string(jsonBody), "'", "'\\''")
 
 	if opts.Oneline {
-		b.WriteString(fmt.Sprintf("curl -X POST '%s' -H 'Accept: %s' -H \"Authorization: %s $(rime key)\" -H 'Content-Type: application/json' -o '%s' -f -d '%s'", apiURL, acceptHeader, authPrefix, outputFile, jsonStr))
+		b.WriteString(fmt.Sprintf("curl -X POST '%s' -H 'Accept: application/json' -H \"Authorization: %s $(sexyvoice key)\" -H 'Content-Type: application/json' -o '%s' -f -d '%s'", apiURL, authPrefix, outputFile, jsonStr))
 	} else {
 		b.WriteString("curl --request POST \\\n")
 		b.WriteString(fmt.Sprintf("  --url '%s' \\\n", apiURL))
-		b.WriteString(fmt.Sprintf("  --header 'Accept: %s' \\\n", acceptHeader))
-		b.WriteString(fmt.Sprintf("  --header \"Authorization: %s $(rime key)\" \\\n", authPrefix))
+		b.WriteString("  --header 'Accept: application/json' \\\n")
+		b.WriteString(fmt.Sprintf("  --header \"Authorization: %s $(sexyvoice key)\" \\\n", authPrefix))
 		b.WriteString("  --header 'Content-Type: application/json' \\\n")
 		b.WriteString(fmt.Sprintf("  --output '%s' \\\n", outputFile))
 		b.WriteString("  --fail \\\n")
@@ -93,58 +91,53 @@ func generateCurlCommand(opts CurlOptions, modelOpts *api.TTSOptions) (string, e
 }
 
 func NewCurlCmd() *cobra.Command {
-	var spk string
-	var modelId string
-	var lang string
+	var voice string
+	var modelID string
+	var format string
+	var style string
+	var seed int
+	var hasSeed bool
 	var oneline bool
 	var apiURL string
-	var modelParams modelParamFlags
 
 	cmd := &cobra.Command{
 		Use:   "curl TEXT",
-		Short: "Generate curl command for TTS request",
-		Long: `Generate a curl command for making TTS API requests.
+		Short: "Generate curl command for speech request",
+		Long: `Generate a curl command for making SexyVoice speech API requests.
 
 Run without arguments to see an example:
-  rime curl
+  sexyvoice curl
 
 For easy copy-paste (single line):
-  rime curl --oneline
+  sexyvoice curl --oneline
 
 Or provide your own text:
-  rime curl "your text here" --speaker astra --model-id arcana`,
+  sexyvoice curl "your text here" --voice poe --model-id gpro`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			text := ""
+			text := "Hello from SexyVoice"
 			if len(args) > 0 {
 				text = args[0]
-
-				if spk == "" {
-					return fmt.Errorf("--speaker is required when providing text")
+				if voice == "" {
+					return fmt.Errorf("--voice is required when providing text")
 				}
-
-				if modelId == "" {
+				if modelID == "" {
 					return fmt.Errorf("--model-id is required when providing text")
 				}
 			} else {
-				text = "Hello from Rime um lemme know if you can hear me!"
-
-				if spk == "" {
-					spk = "astra"
+				if voice == "" {
+					voice = "poe"
 				}
-
-				if modelId == "" {
-					modelId = api.ModelIDArcana
+				if modelID == "" {
+					modelID = api.ModelIDGPro
 				}
 			}
 
-			if modelId != "" {
-				if !api.IsValidModelID(modelId) {
-					return fmt.Errorf("invalid modelId: %s (valid options: %s, %s, %s, %s, %s)", modelId, api.ModelIDArcana, api.ModelIDArcanaV2, api.ModelIDMistV3, api.ModelIDMistV2, api.ModelIDMist)
-				}
-				if !api.IsValidLang(lang, modelId) {
-					return fmt.Errorf("invalid language %q for model %s (valid: %s)", lang, modelId, strings.Join(api.ValidLangsForModel(modelId), ", "))
-				}
+			if !api.IsValidModelID(modelID) {
+				return fmt.Errorf("invalid model-id: %s (valid options: %s)", modelID, strings.Join(api.ValidModelIDs(), ", "))
+			}
+			if format != "" && format != "wav" && format != "mp3" {
+				return fmt.Errorf("unsupported format: %s (supported: wav, mp3)", format)
 			}
 
 			resolved, err := config.ResolveConfigWithOptions(config.ResolveOptions{
@@ -156,42 +149,51 @@ Or provide your own text:
 				return err
 			}
 
-			curlOpts := CurlOptions{
-				Text:       text,
-				Speaker:    spk,
-				ModelID:    modelId,
-				Lang:       lang,
-				Oneline:    oneline,
-				APIURL:     resolved.APIURL,
-				AuthPrefix: resolved.AuthHeaderPrefix,
+			ttsOpts := &api.TTSOptions{
+				Speaker:     voice,
+				ModelID:     modelID,
+				AudioFormat: format,
 			}
-
-			ttsOpts := &api.TTSOptions{ModelID: modelId}
-			modelParams.applyChanged(cmd.Flags(), ttsOpts)
+			if style != "" {
+				ttsOpts.Style = &style
+			}
+			if hasSeed {
+				ttsOpts.Seed = &seed
+			}
 			if err := api.ValidateModelParams(ttsOpts); err != nil {
 				return err
 			}
 
-			curlCmd, err := generateCurlCommand(curlOpts, ttsOpts)
+			curlCmd, err := generateCurlCommand(CurlOptions{
+				Text:       text,
+				Voice:      voice,
+				ModelID:    modelID,
+				Format:     format,
+				Oneline:    oneline,
+				APIURL:     resolved.APIURL,
+				AuthPrefix: resolved.AuthHeaderPrefix,
+			}, ttsOpts)
 			if err != nil {
 				return err
 			}
 
 			fmt.Println(curlCmd)
-
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVarP(&spk, "speaker", "s", "", "Voice speaker to use (required)")
-	cmd.Flags().StringVarP(&modelId, "model-id", "m", "", fmt.Sprintf("Model ID (required, e.g., %s, %s, %s, %s)", api.ModelIDArcana, api.ModelIDArcanaV2, api.ModelIDMistV2, api.ModelIDMist))
-	cmd.Flags().StringVar(&modelId, "modelId", "", "")
-	cmd.Flags().MarkHidden("modelId")
-	cmd.Flags().StringVarP(&lang, "lang", "l", "eng", "Language code (e.g., eng, es, fra). Valid codes depend on model.")
+	cmd.Flags().StringVarP(&voice, "voice", "v", "", "Voice name to use (required)")
+	cmd.Flags().StringVarP(&voice, "speaker", "s", "", "Alias for --voice")
+	cmd.Flags().MarkHidden("speaker")
+	cmd.Flags().StringVarP(&modelID, "model-id", "m", "", fmt.Sprintf("Model ID (required, one of: %s)", strings.Join(api.ValidModelIDs(), ", ")))
+	cmd.Flags().StringVarP(&format, "format", "f", "", "Response format: wav or mp3")
+	cmd.Flags().StringVar(&style, "style", "", "Optional style prompt")
+	cmd.Flags().IntVar(&seed, "seed", 0, "Optional deterministic seed")
 	cmd.Flags().BoolVar(&oneline, "oneline", false, "Output as single line (easier to copy-paste)")
-	cmd.Flags().StringVar(&apiURL, "api-url", "", "API URL (default: $RIME_API_URL or https://users.rime.ai/v1/rime-tts)")
-
-	modelParams.register(cmd.Flags())
+	cmd.Flags().StringVar(&apiURL, "api-url", "", "API URL (default: $SEXYVOICE_API_URL or https://sexyvoice.ai/api/v1/speech)")
+	cmd.PreRun = func(cmd *cobra.Command, args []string) {
+		hasSeed = cmd.Flags().Changed("seed")
+	}
 
 	return cmd
 }

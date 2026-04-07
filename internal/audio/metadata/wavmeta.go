@@ -50,7 +50,7 @@ import (
 // Sub-chunks are padded to even byte boundaries.
 
 type WavMetadata struct {
-	Artist  string // IART: "Rime AI TTS"
+	Artist  string // IART: "SexyVoice TTS"
 	Name    string // INAM: "celeste (arcana) eng"
 	Comment string // ICMT: "[celeste-arcana-eng]: The quick brown fox..."
 }

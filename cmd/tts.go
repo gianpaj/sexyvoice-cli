@@ -5,84 +5,63 @@ import (
 	"os"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
-	"github.com/rimelabs/rime-cli/internal/api"
-	"github.com/rimelabs/rime-cli/internal/audio/metadata"
-	"github.com/rimelabs/rime-cli/internal/audio/playback"
-	"github.com/rimelabs/rime-cli/internal/config"
-	"github.com/rimelabs/rime-cli/internal/output/ui"
-	"github.com/rimelabs/rime-cli/internal/tts"
+	"github.com/gianpaj/sexyvoice-cli/internal/api"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/playback"
+	"github.com/gianpaj/sexyvoice-cli/internal/config"
+	"github.com/gianpaj/sexyvoice-cli/internal/tts"
 )
 
 func NewTTSCmd() *cobra.Command {
 	var output string
 	var play bool
-	var spk string
-	var modelId string
-	var lang string
+	var voice string
+	var modelID string
 	var format string
+	var style string
+	var seed int
+	var hasSeed bool
 	var apiURL string
-	var modelParams modelParamFlags
 
 	cmd := &cobra.Command{
 		Use:   "tts TEXT",
-		Short: "Synthesize text to speech",
-		Long: `Convert text to speech audio.
-
-Supports both WAV and MP3 formats. The format is automatically selected based on the model:
-- mist/mistv2 default to MP3 format
-- mistv3/arcana/arcanav2 default to WAV format
-
-Use --format to override the default format selection.
-
-The CLI handles format detection, metadata embedding, and playback for both formats.`,
-		Args: cobra.ExactArgs(1),
+		Short: "Generate speech audio",
+		Long:  "Generate speech with the SexyVoice /api/v1/speech API, optionally save it, and optionally play it locally.",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			text := args[0]
 
-			if !playback.IsPlaybackEnabled() {
-				if output == "" {
-					return fmt.Errorf("output file required in headless build (use -o FILE or -o - for stdout)")
-				}
+			if !playback.IsPlaybackEnabled() && output == "" {
+				return fmt.Errorf("output file required in headless build (use -o FILE or -o - for stdout)")
 			}
 
 			shouldPlay := playback.IsPlaybackEnabled() && (play || output == "")
 
-			if spk == "" {
-				return fmt.Errorf("--speaker is required. You can use --speaker astra")
+			if voice == "" {
+				return fmt.Errorf("--voice is required. You can use --voice poe")
 			}
-			if modelId == "" {
-				return fmt.Errorf("--model-id is required. You can use --model-id %s", api.ModelIDArcana)
+			if modelID == "" {
+				return fmt.Errorf("--model-id is required. You can use --model-id %s", api.ModelIDGPro)
 			}
-			if !api.IsValidModelID(modelId) {
-				return fmt.Errorf("invalid modelId: %s (valid options: %s)", modelId, strings.Join(api.ValidModelIDs(), ", "))
+			if !api.IsValidModelID(modelID) {
+				return fmt.Errorf("invalid model-id: %s (valid options: %s)", modelID, strings.Join(api.ValidModelIDs(), ", "))
 			}
-			if !api.IsValidLang(lang, modelId) {
-				return fmt.Errorf("invalid language %q for model %s (valid: %s)", lang, modelId, strings.Join(api.ValidLangsForModel(modelId), ", "))
-			}
-
-			var audioFormat string
-			if format != "" {
-				switch format {
-				case "wav":
-					audioFormat = "audio/wav"
-				case "mp3":
-					audioFormat = "audio/mp3"
-				default:
-					return fmt.Errorf("unsupported format: %s (supported: wav, mp3)", format)
-				}
+			if format != "" && format != "wav" && format != "mp3" {
+				return fmt.Errorf("unsupported format: %s (supported: wav, mp3)", format)
 			}
 
 			opts := &api.TTSOptions{
-				Speaker:     spk,
-				ModelID:     modelId,
-				Lang:        lang,
-				AudioFormat: audioFormat,
+				Speaker:     voice,
+				ModelID:     modelID,
+				AudioFormat: format,
 			}
-			modelParams.applyChanged(cmd.Flags(), opts)
+			if style != "" {
+				opts.Style = &style
+			}
+			if hasSeed {
+				opts.Seed = &seed
+			}
 			if err := api.ValidateModelParams(opts); err != nil {
 				return err
 			}
@@ -106,45 +85,22 @@ The CLI handles format detection, metadata embedding, and playback for both form
 				if err != nil {
 					return err
 				}
-				contentType := opts.AudioFormat
-				if contentType == "" {
-					contentType = api.GetAudioFormat(opts.ModelID)
-				}
-				if contentType == "audio/wav" {
-					audioData = metadata.FixWavHeader(audioData)
-				}
 				_, err = os.Stdout.Write(audioData)
 				return err
 			}
 
-			if Quiet || JSONOutput || !term.IsTerminal(int(os.Stdout.Fd())) {
-				runOpts := tts.RunOptions{
-					Text:       text,
-					TTSOptions: opts,
-					Output:     output,
-					Play:       shouldPlay,
-					Quiet:      Quiet,
-					JSON:       JSONOutput,
-					Version:    Version,
-					BaseURL:    apiURL,
-					ConfigEnv:  ConfigEnv,
-					ConfigFile: ConfigFile,
-				}
-				return tts.RunNonInteractive(runOpts)
-			}
-
-			p := tea.NewProgram(ui.NewTTSModel(text, opts, output, shouldPlay, Version, apiURL, ConfigEnv, ConfigFile, true))
-			m, err := p.Run()
-			if err != nil {
-				return err
-			}
-
-			ttsM := m.(ui.TTSModel)
-			if ttsM.Err() != nil {
-				return ttsM.Err()
-			}
-
-			return nil
+			return tts.RunNonInteractive(tts.RunOptions{
+				Text:       text,
+				TTSOptions: opts,
+				Output:     output,
+				Play:       shouldPlay,
+				Quiet:      Quiet,
+				JSON:       JSONOutput,
+				Version:    Version,
+				BaseURL:    apiURL,
+				ConfigEnv:  ConfigEnv,
+				ConfigFile: ConfigFile,
+			})
 		},
 	}
 
@@ -152,15 +108,17 @@ The CLI handles format detection, metadata embedding, and playback for both form
 	if playback.IsPlaybackEnabled() {
 		cmd.Flags().BoolVarP(&play, "play", "p", false, "Play audio (default if no output specified)")
 	}
-	cmd.Flags().StringVarP(&spk, "speaker", "s", "", "Voice speaker to use (required)")
-	cmd.Flags().StringVarP(&modelId, "model-id", "m", "", fmt.Sprintf("Model ID (required, e.g., %s, %s, %s, %s, %s, %s)", api.ModelIDArcana, api.ModelIDArcanaV2, api.ModelIDArcanaV3, api.ModelIDMistV3, api.ModelIDMistV2, api.ModelIDMist))
-	cmd.Flags().StringVar(&modelId, "modelId", "", "")
-	cmd.Flags().MarkHidden("modelId")
-	cmd.Flags().StringVarP(&lang, "lang", "l", "eng", "Language code (e.g., eng, es, fra). Valid codes depend on model.")
-	cmd.Flags().StringVarP(&format, "format", "f", "", "Audio format: wav or mp3 (overrides model default)")
-	cmd.Flags().StringVar(&apiURL, "api-url", "", "API URL (default: $RIME_API_URL or https://users.rime.ai/v1/rime-tts)")
-
-	modelParams.register(cmd.Flags())
+	cmd.Flags().StringVarP(&voice, "voice", "v", "", "Voice name to use (required)")
+	cmd.Flags().StringVarP(&voice, "speaker", "s", "", "Alias for --voice")
+	cmd.Flags().MarkHidden("speaker")
+	cmd.Flags().StringVarP(&modelID, "model-id", "m", "", fmt.Sprintf("Model ID (required, one of: %s)", strings.Join(api.ValidModelIDs(), ", ")))
+	cmd.Flags().StringVarP(&format, "format", "f", "", "Audio format: wav or mp3")
+	cmd.Flags().StringVar(&style, "style", "", "Optional style prompt")
+	cmd.Flags().IntVar(&seed, "seed", 0, "Optional deterministic seed")
+	cmd.Flags().StringVar(&apiURL, "api-url", "", "API URL (default: $SEXYVOICE_API_URL or https://sexyvoice.ai/api/v1/speech)")
+	cmd.PreRun = func(cmd *cobra.Command, args []string) {
+		hasSeed = cmd.Flags().Changed("seed")
+	}
 
 	return cmd
 }

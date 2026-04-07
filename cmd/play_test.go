@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/rimelabs/rime-cli/internal/audio/playback"
-	"github.com/rimelabs/rime-cli/internal/audio/testhelpers"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/playback"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/testhelpers"
 )
 
 func TestPlay_HappyPath(t *testing.T) {

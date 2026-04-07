@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/rimelabs/rime-cli/internal/output/visualizer"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/visualizer"
 )
 
 func textLineFromPanel(lines []string) string {

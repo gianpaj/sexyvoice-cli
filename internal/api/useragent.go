@@ -6,5 +6,5 @@ import (
 )
 
 func UserAgent(version string) string {
-	return fmt.Sprintf("rime-cli/%s (%s/%s)", version, runtime.GOOS, runtime.GOARCH)
+	return fmt.Sprintf("sexyvoice-cli/%s (%s/%s)", version, runtime.GOOS, runtime.GOARCH)
 }

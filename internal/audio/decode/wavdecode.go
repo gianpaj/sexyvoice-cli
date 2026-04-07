@@ -4,7 +4,7 @@ import (
 	"io"
 
 	"github.com/gopxl/beep/v2"
-	"github.com/rimelabs/rime-cli/internal/audio/stream"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/stream"
 )
 
 func decodeWAV(r io.Reader) (AudioDecoder, beep.Format, error) {

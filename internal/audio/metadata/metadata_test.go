@@ -3,7 +3,7 @@ package metadata
 import (
 	"testing"
 
-	"github.com/rimelabs/rime-cli/internal/audio/testhelpers"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/testhelpers"
 )
 
 func TestGetParsedCommentFromFile_WAV(t *testing.T) {

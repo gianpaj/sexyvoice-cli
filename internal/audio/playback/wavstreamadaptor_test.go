@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/gopxl/beep/v2"
-	"github.com/rimelabs/rime-cli/internal/audio/stream"
-	"github.com/rimelabs/rime-cli/internal/audio/testhelpers"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/stream"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/testhelpers"
 )
 
 func TestWavStreamerAdapter_Stream(t *testing.T) {

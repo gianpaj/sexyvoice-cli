@@ -6,15 +6,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/rimelabs/rime-cli/internal/config"
-	"github.com/rimelabs/rime-cli/internal/output/styles"
+	"github.com/gianpaj/sexyvoice-cli/internal/config"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/styles"
 )
 
 func NewLogoutCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "logout",
 		Short: "Remove your saved API key",
-		Long:  "Removes the locally saved API key, requiring you to run 'rime login' again",
+		Long:  "Removes the locally saved API key, requiring you to run 'sexyvoice login' again",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.ConfigFilePath()

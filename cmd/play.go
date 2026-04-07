@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/rimelabs/rime-cli/internal/audio/playback"
-	"github.com/rimelabs/rime-cli/internal/output/ui"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/playback"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/ui"
 )
 
 func NewPlayCmd() *cobra.Command {

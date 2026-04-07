@@ -34,12 +34,12 @@ func TestFileContains(t *testing.T) {
 	}
 	defer f.Close()
 
-	f.WriteString("export FOO=bar\n. \"/home/user/.rime/env.sh\"\nexport BAZ=qux\n")
+	f.WriteString("export FOO=bar\n. \"/home/user/.sexyvoice/env.sh\"\nexport BAZ=qux\n")
 
-	if !fileContains(f.Name(), `. "/home/user/.rime/env.sh"`) {
+	if !fileContains(f.Name(), `. "/home/user/.sexyvoice/env.sh"`) {
 		t.Error("expected fileContains to return true for present line")
 	}
-	if fileContains(f.Name(), `. "/home/user/.rime/env.sh" `+" extra") {
+	if fileContains(f.Name(), `. "/home/user/.sexyvoice/env.sh" `+" extra") {
 		t.Error("expected fileContains to return false for absent line")
 	}
 	if fileContains("/nonexistent/file", "anything") {
@@ -56,33 +56,33 @@ func TestRemoveLineFromFile(t *testing.T) {
 	}{
 		{
 			name:   "removes source line",
-			input:  "export FOO=bar\n. \"/home/user/.rime/env.sh\"\nexport BAZ=qux\n",
-			substr: `. "/home/user/.rime/env.sh"`,
+			input:  "export FOO=bar\n. \"/home/user/.sexyvoice/env.sh\"\nexport BAZ=qux\n",
+			substr: `. "/home/user/.sexyvoice/env.sh"`,
 			want:   "export FOO=bar\nexport BAZ=qux\n",
 		},
 		{
-			name:   "removes source line and preceding rime comment",
-			input:  "export FOO=bar\n# rime\n. \"/home/user/.rime/env.sh\"\nexport BAZ=qux\n",
-			substr: `. "/home/user/.rime/env.sh"`,
+			name:   "removes source line and preceding sexyvoice comment",
+			input:  "export FOO=bar\n# sexyvoice\n. \"/home/user/.sexyvoice/env.sh\"\nexport BAZ=qux\n",
+			substr: `. "/home/user/.sexyvoice/env.sh"`,
 			want:   "export FOO=bar\nexport BAZ=qux\n",
 		},
 		{
-			name:   "removes source line, rime comment, and preceding blank line",
-			input:  "export FOO=bar\n\n# rime\n. \"/home/user/.rime/env.sh\"\nexport BAZ=qux\n",
-			substr: `. "/home/user/.rime/env.sh"`,
+			name:   "removes source line, sexyvoice comment, and preceding blank line",
+			input:  "export FOO=bar\n\n# sexyvoice\n. \"/home/user/.sexyvoice/env.sh\"\nexport BAZ=qux\n",
+			substr: `. "/home/user/.sexyvoice/env.sh"`,
 			want:   "export FOO=bar\nexport BAZ=qux\n",
 		},
 		{
 			name:   "no change when substr not present",
 			input:  "export FOO=bar\nexport BAZ=qux\n",
-			substr: `. "/home/user/.rime/env.sh"`,
+			substr: `. "/home/user/.sexyvoice/env.sh"`,
 			want:   "export FOO=bar\nexport BAZ=qux\n",
 		},
 		{
-			name:   "does not remove unrelated # rime comment",
-			input:  "# rime\nexport FOO=bar\n. \"/home/user/.rime/env.sh\"\n",
-			substr: `. "/home/user/.rime/env.sh"`,
-			want:   "# rime\nexport FOO=bar\n",
+			name:   "does not remove unrelated # sexyvoice comment",
+			input:  "# sexyvoice\nexport FOO=bar\n. \"/home/user/.sexyvoice/env.sh\"\n",
+			substr: `. "/home/user/.sexyvoice/env.sh"`,
+			want:   "# sexyvoice\nexport FOO=bar\n",
 		},
 	}
 

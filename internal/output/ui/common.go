@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
 
-	"github.com/rimelabs/rime-cli/internal/output/visualizer"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/visualizer"
 )
 
 var Spinner = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -31,7 +31,7 @@ func GetTerminalWidth(minWidth, maxWidth int) int {
 // around the logo and right panel: "│ " + logo + " │ " + right + " │" = logoWidth + 7.
 var BoxOverhead = UnboxedLogoWidth() + 7
 
-// RenderBoxLayout renders a two-column box with the rime logo on the left
+// RenderBoxLayout renders a two-column box with the SexyVoice logo on the left
 // and the given right-side content lines on the right.
 func RenderBoxLayout(rightContentWidth int, rightLines []string) string {
 	logo := UnboxedLogoPlain()

@@ -14,12 +14,12 @@ import (
 	"github.com/gopxl/beep/v2"
 	"github.com/gopxl/beep/v2/speaker"
 
-	"github.com/rimelabs/rime-cli/internal/audio/analyze"
-	"github.com/rimelabs/rime-cli/internal/audio/detectformat"
-	"github.com/rimelabs/rime-cli/internal/audio/metadata"
-	"github.com/rimelabs/rime-cli/internal/audio/stream"
-	"github.com/rimelabs/rime-cli/internal/output/formatters"
-	"github.com/rimelabs/rime-cli/internal/output/visualizer"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/analyze"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/detectformat"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/metadata"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/stream"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/formatters"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/visualizer"
 )
 
 type PlayState int
@@ -241,7 +241,7 @@ func (m PlayModel) View() string {
 			stats = append(stats, DimStyle.Render("Size: ")+formatters.FormatBytes(len(m.audioData)))
 		}
 		statsLine := strings.Join(stats, DimStyle.Render(" | "))
-		b.WriteString(RenderMinimalView("Rime Play", m.waveform, m.transcript, "", m.termWidth, labels, statsLine))
+		b.WriteString(RenderMinimalView("SexyVoice Play", m.waveform, m.transcript, "", m.termWidth, labels, statsLine))
 	}
 
 	return b.String()

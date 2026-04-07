@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/rimelabs/rime-cli/internal/audio/testhelpers"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/testhelpers"
 )
 
 func TestEmbedAndReadMP3Metadata(t *testing.T) {
 	mp3 := testhelpers.MakeMinimalMP3()
 
 	meta := MP3Metadata{
-		Artist:  "Rime AI TTS",
+		Artist:  "SexyVoice TTS",
 		Title:   "Test Title",
 		Comment: "[celeste-arcana-eng]: Hello world",
 	}

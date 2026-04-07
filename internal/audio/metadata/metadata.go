@@ -3,7 +3,7 @@ package metadata
 import (
 	"regexp"
 
-	"github.com/rimelabs/rime-cli/internal/audio/detectformat"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/detectformat"
 )
 
 type ParsedComment struct {

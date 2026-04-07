@@ -11,8 +11,8 @@ import (
 
 	"github.com/gopxl/beep/v2"
 	"github.com/gopxl/beep/v2/speaker"
-	"github.com/rimelabs/rime-cli/internal/audio/detectformat"
-	"github.com/rimelabs/rime-cli/internal/audio/stream"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/detectformat"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/stream"
 )
 
 func RunNonInteractivePlay(filepath string) error {

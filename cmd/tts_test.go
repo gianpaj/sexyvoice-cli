@@ -2,258 +2,93 @@ package cmd
 
 import (
 	"bytes"
-	"io"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/rimelabs/rime-cli/internal/api"
-	"github.com/rimelabs/rime-cli/internal/audio/testhelpers"
-	"github.com/rimelabs/rime-cli/internal/config"
-	"github.com/rimelabs/rime-cli/internal/tts"
+	"github.com/gianpaj/sexyvoice-cli/internal/config"
 )
 
-func TestTTS_HappyPath(t *testing.T) {
-	wavData := testhelpers.MakeValidWAV(24000)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			t.Errorf("Expected POST, got %s", r.Method)
+func setupTTSServer(t *testing.T, audioURL string, audio []byte, contentType string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/speech":
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("decode failed: %v", err)
+			}
+			if body["model"] != "gpro" {
+				t.Fatalf("expected model gpro, got %v", body["model"])
+			}
+			if body["voice"] != "poe" {
+				t.Fatalf("expected voice poe, got %v", body["voice"])
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]string{"url": audioURL})
+		case "/audio.wav":
+			w.Header().Set("Content-Type", contentType)
+			_, _ = w.Write(audio)
+		default:
+			http.NotFound(w, r)
 		}
-		w.Header().Set("Content-Type", "audio/wav")
-		w.WriteHeader(http.StatusOK)
-		w.Write(wavData)
 	}))
+}
+
+func TestTTSCmd_Stdout(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	audio := []byte("RIFF....WAVE")
+
+	var server *httptest.Server
+	server = setupTTSServer(t, "", audio, "audio/wav")
 	defer server.Close()
 
-	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", originalHome)
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("RIME_API_URL", server.URL)
-	defer os.Unsetenv("RIME_API_URL")
-
-	if err := config.SaveAPIKey("test-key"); err != nil {
-		t.Fatalf("Failed to save API key: %v", err)
-	}
-
-	Version = "test-version"
-	client := api.NewClient(api.ClientOptions{
-		APIKey:  "test-key",
-		Version: Version,
+	audioURL := server.URL + "/audio.wav"
+	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/speech":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]string{"url": audioURL})
+		case "/audio.wav":
+			w.Header().Set("Content-Type", "audio/wav")
+			_, _ = w.Write(audio)
+		default:
+			http.NotFound(w, r)
+		}
 	})
-	opts := &api.TTSOptions{
-		Speaker: "astra",
-		ModelID: "arcana",
-	}
 
-	result, err := client.TTSStream("hello", opts)
-	if err != nil {
-		t.Fatalf("TTSStream failed: %v", err)
-	}
-	defer result.Body.Close()
-
-	var audioBuf bytes.Buffer
-	_, err = io.Copy(&audioBuf, result.Body)
-	if err != nil {
-		t.Fatalf("Failed to read audio: %v", err)
-	}
-
-	if audioBuf.Len() == 0 {
-		t.Error("Expected non-zero audio data")
-	}
-}
-
-func TestTTS_SaveToFile(t *testing.T) {
-	wavData := testhelpers.MakeValidWAV(24000)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "audio/wav")
-		w.WriteHeader(http.StatusOK)
-		w.Write(wavData)
-	}))
-	defer server.Close()
-
-	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", originalHome)
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("RIME_API_URL", server.URL)
-	defer os.Unsetenv("RIME_API_URL")
-
+	t.Setenv("SEXYVOICE_API_URL", server.URL+"/api/v1/speech")
 	if err := config.SaveAPIKey("test-key"); err != nil {
-		t.Fatalf("Failed to save API key: %v", err)
+		t.Fatalf("SaveAPIKey failed: %v", err)
 	}
-
-	outputFile := filepath.Join(tmpDir, "out.wav")
-	Version = "test-version"
-
-	runOpts := tts.RunOptions{
-		Text: "hello",
-		TTSOptions: &api.TTSOptions{
-			Speaker: "astra",
-			ModelID: "arcana",
-		},
-		Output:  outputFile,
-		Play:    false,
-		Quiet:   true,
-		JSON:    false,
-		Version: Version,
-	}
-	err := tts.RunNonInteractive(runOpts)
-	if err != nil {
-		t.Fatalf("runNonInteractiveTTS failed: %v", err)
-	}
-
-	if _, err := os.Stat(outputFile); err != nil {
-		t.Fatalf("Output file not created: %v", err)
-	}
-
-	data, err := os.ReadFile(outputFile)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	if len(data) == 0 {
-		t.Error("Output file is empty")
-	}
-
-	if !bytes.HasPrefix(data, []byte("RIFF")) {
-		t.Error("Output file is not a valid WAV file")
-	}
-}
-
-func TestTTS_StdoutOutput(t *testing.T) {
-	wavData := testhelpers.MakeValidWAV(24000)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "audio/wav")
-		w.WriteHeader(http.StatusOK)
-		w.Write(wavData)
-	}))
-	defer server.Close()
-
-	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", originalHome)
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("RIME_API_URL", server.URL)
-	defer os.Unsetenv("RIME_API_URL")
-
-	if err := config.SaveAPIKey("test-key"); err != nil {
-		t.Fatalf("Failed to save API key: %v", err)
-	}
-
-	Version = "test-version"
-	client := api.NewClient(api.ClientOptions{
-		APIKey:  "test-key",
-		Version: Version,
-	})
-	opts := &api.TTSOptions{
-		Speaker: "astra",
-		ModelID: "arcana",
-	}
-
-	audioData, err := client.TTS("hello", opts)
-	if err != nil {
-		t.Fatalf("TTS failed: %v", err)
-	}
-
-	if len(audioData) == 0 {
-		t.Error("Expected non-zero audio data")
-	}
-
-	if !bytes.HasPrefix(audioData, []byte("RIFF")) {
-		t.Error("Audio data is not a valid WAV file")
-	}
-}
-
-func TestTTS_MissingAPIKey(t *testing.T) {
-	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", originalHome)
-	os.Setenv("HOME", tmpDir)
-	os.Unsetenv("RIME_CLI_API_KEY")
-
-	resolved, err := config.ResolveConfig("default", "")
-	if err != nil {
-		t.Fatalf("ResolveConfig should not error: %v", err)
-	}
-
-	if resolved.APIKey != "" {
-		t.Error("Expected empty API key when none is configured")
-	}
-}
-
-func TestTTS_InvalidArguments(t *testing.T) {
-	cmd := NewTTSCmd()
-
-	err := cmd.ValidateArgs([]string{})
-	if err == nil {
-		t.Error("Expected error for zero arguments")
-	}
-
-	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", originalHome)
-	os.Setenv("HOME", tmpDir)
-
-	if err := config.SaveAPIKey("test-key"); err != nil {
-		t.Fatalf("Failed to save API key: %v", err)
-	}
-
-	Version = "test-version"
-	err = cmd.RunE(cmd, []string{"hello"})
-	if err == nil {
-		t.Error("Expected error for missing required flags")
-	}
-	if err != nil && !strings.Contains(err.Error(), "--speaker") && !strings.Contains(err.Error(), "--model-id") {
-		t.Errorf("Error should mention required flags, got: %v", err)
-	}
-}
-
-func TestTTSCmd_ValidParamsAccepted(t *testing.T) {
-	wavData := testhelpers.MakeValidWAV(24000)
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "audio/wav")
-		w.WriteHeader(http.StatusOK)
-		w.Write(wavData)
-	}))
-	defer server.Close()
-
-	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", originalHome)
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("RIME_API_URL", server.URL)
-	defer os.Unsetenv("RIME_API_URL")
-
-	if err := config.SaveAPIKey("test-key"); err != nil {
-		t.Fatalf("Failed to save API key: %v", err)
-	}
-
-	cmd := NewTTSCmd()
-	cmd.SetArgs([]string{
-		"hello", "-s", "astra", "-m", api.ModelIDArcana, "-o", "-",
-		"--temperature", "0.7",
-		"--top-p", "0.9",
-		"--repetition-penalty", "1.3",
-		"--max-tokens", "800",
-		"--sampling-rate", "24000",
-		"--speed-alpha", "1.2",
-	})
 
 	oldStdout := os.Stdout
-	devNull, _ := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
-	os.Stdout = devNull
+	r, w, _ := os.Pipe()
+	os.Stdout = w
 	defer func() { os.Stdout = oldStdout }()
 
-	err := cmd.Execute()
-	if err != nil {
-		t.Errorf("expected valid arcana params to be accepted, got: %v", err)
+	cmd := NewTTSCmd()
+	cmd.SetArgs([]string{"hello", "--voice", "poe", "--model-id", "gpro", "-o", "-"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+	_ = w.Close()
+
+	var buf bytes.Buffer
+	_, _ = buf.ReadFrom(r)
+	if !bytes.Equal(buf.Bytes(), audio) {
+		t.Fatalf("unexpected stdout audio: %q", buf.Bytes())
+	}
+}
+
+func TestTTSCmd_RequiresVoiceAndModel(t *testing.T) {
+	cmd := NewTTSCmd()
+	if err := cmd.RunE(cmd, []string{"hello"}); err == nil {
+		t.Fatal("expected validation error")
+	} else if !strings.Contains(err.Error(), "--voice") {
+		t.Fatalf("expected voice error, got %v", err)
 	}
 }

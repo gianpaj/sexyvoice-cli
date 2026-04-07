@@ -6,14 +6,14 @@ import (
 
 	"bytes"
 
-	"github.com/rimelabs/rime-cli/internal/audio/testhelpers"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/testhelpers"
 )
 
 func TestEmbedAndReadMetadata(t *testing.T) {
 	wav := testhelpers.MakeMinimalWAV()
 
 	meta := WavMetadata{
-		Artist:  "Rime AI TTS",
+		Artist:  "SexyVoice TTS",
 		Name:    "celeste (arcana) eng",
 		Comment: "[celeste-arcana-eng]: Hello world",
 	}

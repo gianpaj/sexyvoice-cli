@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/rimelabs/rime-cli/internal/config"
-	"github.com/rimelabs/rime-cli/internal/output/styles"
+	"github.com/gianpaj/sexyvoice-cli/internal/config"
+	"github.com/gianpaj/sexyvoice-cli/internal/output/styles"
 )
 
 func NewConfigCmd() *cobra.Command {
@@ -38,14 +38,14 @@ func NewConfigAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <name>",
 		Short: "Add a named environment to configuration",
-		Long:  "Interactively adds a named environment to ~/.rime/rime.toml",
+		Long:  "Interactively adds a named environment to ~/.sexyvoice/sexyvoice.toml",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			name := args[0]
 
 			if name == "default" {
-				return fmt.Errorf("cannot add an environment named %q; use 'rime config init' to modify the default", name)
+				return fmt.Errorf("cannot add an environment named %q; use 'sexyvoice config init' to modify the default", name)
 			}
 
 			isTerminal := term.IsTerminal(int(os.Stdin.Fd()))
@@ -54,14 +54,14 @@ func NewConfigAddCmd() *cobra.Command {
 
 			if apiURL == "" {
 				if isTerminal {
-					fmt.Printf("API URL [https://users.rime.ai/v1/rime-tts]: ")
+					fmt.Printf("API URL [https://sexyvoice.ai/api/v1/speech]: ")
 					line, _ := reader.ReadString('\n')
 					if trimmed := strings.TrimSpace(line); trimmed != "" {
 						apiURL = trimmed
 					}
 				}
 				if apiURL == "" {
-					apiURL = "https://users.rime.ai/v1/rime-tts"
+					apiURL = "https://sexyvoice.ai/api/v1/speech"
 				}
 			}
 
@@ -99,7 +99,7 @@ func NewConfigAddCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&apiURL, "url", "", "API URL (default: https://users.rime.ai/v1/rime-tts)")
+	cmd.Flags().StringVar(&apiURL, "url", "", "API URL (default: https://sexyvoice.ai/api/v1/speech)")
 	cmd.Flags().StringVar(&apiKey, "key", "", "API key")
 	cmd.Flags().StringVar(&authPrefix, "auth-prefix", "", "Auth header prefix (e.g. Bearer)")
 	return cmd
@@ -111,7 +111,7 @@ func NewConfigInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Initialize configuration file",
-		Long:  "Creates a new ~/.rime/rime.toml configuration file",
+		Long:  "Creates a new ~/.sexyvoice/sexyvoice.toml configuration file",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			path, err := config.ConfigFilePath()
@@ -144,13 +144,10 @@ func NewConfigInitCmd() *cobra.Command {
 			}
 
 			cfg := fmt.Sprintf(`api_key = %q
-default_env = "users"
+default_env = "production"
 
-[env.users]
-api_url = "https://users.rime.ai/v1/rime-tts"
-
-[env.users-east]
-api_url = "https://users-east.rime.ai/v1/rime-tts"
+[env.production]
+api_url = "https://sexyvoice.ai/api/v1/speech"
 `, apiKey)
 
 			if err := os.WriteFile(path, []byte(cfg), 0600); err != nil {
@@ -186,7 +183,7 @@ func NewConfigListCmd() *cobra.Command {
 			}
 
 			if cfg == nil {
-				fmt.Fprintln(cmd.OutOrStdout(), "No config file found. Run 'rime config init' to create one.")
+				fmt.Fprintln(cmd.OutOrStdout(), "No config file found. Run 'sexyvoice config init' to create one.")
 				return nil
 			}
 
@@ -376,7 +373,7 @@ func NewConfigEditCmd() *cobra.Command {
 				return err
 			}
 			if _, err := os.Stat(path); os.IsNotExist(err) {
-				return fmt.Errorf("config file not found; run 'rime config init' first")
+				return fmt.Errorf("config file not found; run 'sexyvoice config init' first")
 			}
 
 			editor := os.Getenv("VISUAL")

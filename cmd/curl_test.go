@@ -1,219 +1,62 @@
 package cmd
 
 import (
-	"os"
 	"strings"
 	"testing"
 
-	"github.com/rimelabs/rime-cli/internal/api"
+	"github.com/gianpaj/sexyvoice-cli/internal/api"
 )
 
 func TestGenerateCurlCommand_Basic(t *testing.T) {
-	opts := CurlOptions{
+	cmd, err := generateCurlCommand(CurlOptions{
 		Text:    "hello world",
-		Speaker: "astra",
-		ModelID: "arcana",
-		Lang:    "eng",
-		APIURL:  "https://api.example.com",
-	}
-
-	cmd, err := generateCurlCommand(opts, &api.TTSOptions{})
+		Voice:   "poe",
+		ModelID: api.ModelIDGPro,
+		APIURL:  "https://sexyvoice.ai/api/v1/speech",
+	}, &api.TTSOptions{})
 	if err != nil {
 		t.Fatalf("generateCurlCommand failed: %v", err)
 	}
 
-	if !strings.Contains(cmd, "curl") {
-		t.Error("curl command should contain 'curl'")
-	}
-	if !strings.Contains(cmd, "hello world") {
-		t.Error("curl command should contain text")
-	}
-	if !strings.Contains(cmd, "astra") {
-		t.Error("curl command should contain speaker")
-	}
-	if !strings.Contains(cmd, "arcana") || !strings.Contains(cmd, "modelId") {
-		t.Error("curl command should contain model-id (as modelId in JSON)")
-	}
-	if !strings.Contains(cmd, "https://api.example.com") {
-		t.Error("curl command should contain API URL")
-	}
-	if !strings.Contains(cmd, "$(rime key)") {
-		t.Error("curl command should use $(rime key) shell substitution")
-	}
-	if !strings.Contains(cmd, "--output 'output.wav'") {
-		t.Error("curl command should contain --output flag")
-	}
-	if !strings.Contains(cmd, "--fail") {
-		t.Error("curl command should contain --fail flag")
+	for _, fragment := range []string{
+		`"voice": "poe"`,
+		`"model": "gpro"`,
+		"$(sexyvoice key)",
+		"--output 'output.wav'",
+	} {
+		if !strings.Contains(cmd, fragment) {
+			t.Fatalf("expected curl command to contain %q\n%s", fragment, cmd)
+		}
 	}
 }
 
-func TestGenerateCurlCommand_Oneline(t *testing.T) {
-	opts := CurlOptions{
-		Text:    "test",
-		Speaker: "astra",
-		ModelID: "arcana",
+func TestGenerateCurlCommand_WithStyleAndSeed(t *testing.T) {
+	style := "happy"
+	seed := 42
+
+	cmd, err := generateCurlCommand(CurlOptions{
+		Text:    "hello",
+		Voice:   "tara",
+		ModelID: api.ModelIDGrok,
+		Format:  "mp3",
 		Oneline: true,
-		APIURL:  "https://api.example.com",
-	}
-
-	cmd, err := generateCurlCommand(opts, &api.TTSOptions{})
+		APIURL:  "https://sexyvoice.ai/api/v1/speech",
+	}, &api.TTSOptions{Style: &style, Seed: &seed})
 	if err != nil {
 		t.Fatalf("generateCurlCommand failed: %v", err)
 	}
 
-	if strings.Contains(cmd, "\\\n") {
-		t.Error("oneline mode should not contain line breaks")
-	}
-	if !strings.Contains(cmd, "curl -X POST") {
-		t.Error("oneline mode should use -X POST format")
-	}
-	if !strings.Contains(cmd, "-o 'output.wav'") {
-		t.Error("oneline mode should contain -o flag")
-	}
-	if !strings.Contains(cmd, " -f ") {
-		t.Error("oneline mode should contain -f flag")
+	for _, fragment := range []string{`"style":"happy"`, `"seed":42`, `-o 'output.mp3'`} {
+		if !strings.Contains(cmd, fragment) {
+			t.Fatalf("expected curl command to contain %q\n%s", fragment, cmd)
+		}
 	}
 }
 
-func TestAudioFormatToExt(t *testing.T) {
-	if ext := audioFormatToExt("audio/mp3"); ext != "mp3" {
-		t.Errorf("expected mp3, got %s", ext)
-	}
-	if ext := audioFormatToExt("audio/wav"); ext != "wav" {
-		t.Errorf("expected wav, got %s", ext)
-	}
-	if ext := audioFormatToExt(""); ext != "wav" {
-		t.Errorf("expected wav for unknown format, got %s", ext)
-	}
-}
-
-func TestGenerateCurlCommand_MP3Model(t *testing.T) {
-	opts := CurlOptions{
-		Text:    "test",
-		Speaker: "luna",
-		ModelID: "mistv2",
-		APIURL:  "https://api.example.com",
-	}
-	modelOpts := &api.TTSOptions{}
-
-	cmd, err := generateCurlCommand(opts, modelOpts)
-	if err != nil {
-		t.Fatalf("generateCurlCommand failed: %v", err)
-	}
-
-	if !strings.Contains(cmd, "--output 'output.mp3'") {
-		t.Error("mp3 model should produce --output output.mp3")
-	}
-}
-
-func TestCurlCmd_MissingRequiredFlags(t *testing.T) {
-	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", originalHome)
-	os.Setenv("HOME", tmpDir)
-
+func TestCurlCmd_RequiresVoiceAndModelForText(t *testing.T) {
 	cmd := NewCurlCmd()
-	cmd.SetArgs([]string{"test text"})
-
-	err := cmd.Execute()
-	if err == nil {
-		t.Error("curl command with text but no speaker/model-id should fail")
-	}
-}
-
-func TestCurlCmd_InvalidLangWithoutText(t *testing.T) {
-	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", originalHome)
-	os.Setenv("HOME", tmpDir)
-
-	cmd := NewCurlCmd()
-	cmd.SetArgs([]string{"-l", "english", "-s", "astra", "-m", "arcana"})
-
-	err := cmd.Execute()
-	if err == nil {
-		t.Error("curl command with invalid language should fail even without text")
-	}
-	if !strings.Contains(err.Error(), "invalid language") {
-		t.Errorf("expected error about invalid language, got: %v", err)
-	}
-}
-
-func TestGenerateCurlCommand_NewParams(t *testing.T) {
-	temp := 0.7
-	topP := 0.9
-	opts := CurlOptions{
-		Text:    "hello",
-		Speaker: "astra",
-		ModelID: "arcana",
-		Lang:    "eng",
-		APIURL:  "https://api.example.com",
-	}
-	modelOpts := &api.TTSOptions{
-		Temperature: &temp,
-		TopP:        &topP,
-	}
-
-	curlCmd, err := generateCurlCommand(opts, modelOpts)
-	if err != nil {
-		t.Fatalf("generateCurlCommand failed: %v", err)
-	}
-
-	if !strings.Contains(curlCmd, "temperature") {
-		t.Error("curl command should contain temperature field")
-	}
-	if !strings.Contains(curlCmd, "top_p") {
-		t.Error("curl command should contain top_p field")
-	}
-}
-
-func TestGenerateCurlCommand_UsesRimeKeySubstitution(t *testing.T) {
-	opts := CurlOptions{
-		Text:    "hello",
-		Speaker: "astra",
-		ModelID: "arcana",
-		Lang:    "eng",
-		APIURL:  "https://api.example.com",
-	}
-
-	cmd, err := generateCurlCommand(opts, &api.TTSOptions{})
-	if err != nil {
-		t.Fatalf("generateCurlCommand failed: %v", err)
-	}
-
-	if !strings.Contains(cmd, "$(rime key)") {
-		t.Error("curl command should use $(rime key) shell substitution for auth")
-	}
-	if strings.Contains(cmd, "$RIME_CLI_API_KEY") {
-		t.Error("curl command should not use $RIME_CLI_API_KEY placeholder")
-	}
-}
-
-func TestGenerateCurlCommand_MistParams(t *testing.T) {
-	pause := true
-	speed := "1.0,1.2"
-	opts := CurlOptions{
-		Text:    "hello",
-		Speaker: "astra",
-		ModelID: "mistv2",
-		Lang:    "eng",
-		APIURL:  "https://api.example.com",
-	}
-	modelOpts := &api.TTSOptions{
-		PauseBetweenBrackets: &pause,
-		InlineSpeedAlpha:     &speed,
-	}
-
-	curlCmd, err := generateCurlCommand(opts, modelOpts)
-	if err != nil {
-		t.Fatalf("generateCurlCommand failed: %v", err)
-	}
-
-	if !strings.Contains(curlCmd, "pauseBetweenBrackets") {
-		t.Error("curl command should contain pauseBetweenBrackets field")
-	}
-	if !strings.Contains(curlCmd, "inlineSpeedAlpha") {
-		t.Error("curl command should contain inlineSpeedAlpha field")
+	cmd.SetArgs([]string{"hello"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected validation error")
 	}
 }

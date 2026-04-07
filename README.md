@@ -1,164 +1,118 @@
-# Rime CLI
+# SexyVoice CLI
 
-The official command-line interface for [Rime](https://rime.ai) text-to-speech synthesis. Generate natural-sounding speech from text, stream audio in real-time, and integrate Rime TTS into your workflows.
+Command-line interface for the [SexyVoice](https://sexyvoice.ai) `/api/v1/speech` API.
 
-![rime tts demo](docs/gifs/tts-streaming.gif)
+It handles:
+- browser-based login that rotates or creates an API key through the SexyVoice dashboard
+- speech generation from `POST /api/v1/speech`
+- curl generation for debugging and integrations
+- local audio playback and file saving
 
 ## Install
 
-### Homebrew (macOS & Linux)
+### From Source
 
 ```bash
-brew tap rimelabs/rime-cli
-brew install rime-cli
+go install github.com/gianpaj/sexyvoice-cli@latest
 ```
 
 ### Shell Script
 
 ```bash
-curl -fsSL https://rime.ai/install-cli.sh | sh
+curl -fsSL https://raw.githubusercontent.com/gianpaj/sexyvoice-cli/main/install.sh | sh
 ```
 
 To install a specific version:
 
 ```bash
-curl -fsSL https://rime.ai/install-cli.sh | sh -s v1.0.0
+curl -fsSL https://raw.githubusercontent.com/gianpaj/sexyvoice-cli/main/install.sh | sh -s v0.1.0
 ```
 
-### From Source
+### Homebrew
+
+If you publish the formula:
 
 ```bash
-go install github.com/rimelabs/rime-cli@latest
+brew install gianpaj/sexyvoice-cli/sexyvoice-cli
 ```
 
 ## Quick Start
 
 ```bash
-# Authenticate with your Rime API key
-rime login
+# Open the dashboard login flow and save an API key locally
+sexyvoice login
 
-# Synthesize text to speech — streams and plays immediately
-rime tts "Hello from Rime" --speaker astra --model-id arcana
+# Generate speech and play it immediately
+sexyvoice tts "Hello from SexyVoice" --voice poe --model-id gpro
 
 # Save to a file instead
-rime tts "Hello from Rime" --speaker astra --model-id arcana -o hello.wav
+sexyvoice tts "Hello from SexyVoice" --voice poe --model-id gpro -o hello.wav
 
-# Play a quick demo
-rime hello
+# Generate the equivalent curl command
+sexyvoice curl "Hello from SexyVoice" --voice poe --model-id gpro --format wav
 ```
 
 ## Commands
 
-### `rime login`
+### `sexyvoice login`
 
-Opens the Rime dashboard in your browser and saves your API key locally.
+Opens the SexyVoice dashboard in your browser, lets you reuse an existing API key by rotating it, and saves the replacement key locally.
 
-```bash
-rime login
-```
+### `sexyvoice tts TEXT`
 
-### `rime tts TEXT`
+Generate speech audio from text.
 
-Synthesize text to speech. Streams audio and plays it in real-time as it arrives.
-
-```bash
-rime tts "Your text here" --speaker astra --model-id arcana
-```
-
-![Streaming TTS](docs/gifs/tts-streaming.gif)
-
-**Flags:**
+Common flags:
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--speaker` | `-s` | Voice to use (e.g. `astra`, `celeste`) |
-| `--model-id` | `-m` | Model ID (`arcana` for WAV, `mistv2` for MP3) |
-| `--output` | `-o` | Save to file (use `-` for stdout) |
-| `--play` | `-p` | Play audio after saving to file |
-| `--lang` | `-l` | Language code (default: `eng`) |
-| `--json` | | Output results as JSON |
-| `--quiet` | `-q` | Suppress non-essential output |
+| `--voice` | `-v` | Voice name to use |
+| `--model-id` | `-m` | Model ID: `gpro`, `grok`, or `orpheus` |
+| `--format` | `-f` | Response format: `wav` or `mp3` |
+| `--style` | | Optional style prompt |
+| `--seed` | | Optional deterministic seed |
+| `--output` | `-o` | Save to file, or use `-` for stdout |
+| `--play` | `-p` | Play audio locally |
+| `--json` | | Emit CLI result metadata as JSON |
 
-![Save and play](docs/gifs/tts-save-play.gif)
+### `sexyvoice curl TEXT`
 
-### `rime curl [TEXT]`
+Print the equivalent `curl` request body for the SexyVoice speech endpoint.
 
-Generate a curl command for making TTS API requests. Useful for debugging and integration.
+### `sexyvoice key`
 
-```bash
-rime curl "Hello world" --speaker astra --model-id arcana --oneline
-```
+Print the resolved API key with no trailing newline.
 
-![curl demo](docs/gifs/curl-demo.gif)
+### `sexyvoice config`
 
-### `rime play FILE`
+Manage config environments in `~/.sexyvoice/sexyvoice.toml`.
 
-Play a WAV or MP3 audio file with waveform visualization.
+### `sexyvoice play FILE`
 
-```bash
-rime play output.wav
-```
+Play a local WAV or MP3 file.
 
-![Play demo](docs/gifs/play-demo.gif)
+### `sexyvoice logout`
 
-### `rime hello`
-
-Quick demo that plays a time-appropriate greeting using the Astra voice.
-
-```bash
-rime hello
-```
-
-![Hello demo](docs/gifs/hello-demo.gif)
-
-### `rime uninstall`
-
-Print removal instructions for the CLI binary and configuration files.
-
-## Models
-
-| Model | Format | Description |
-|-------|--------|-------------|
-| `arcana` | WAV | High-quality, low-latency |
-| `mistv2` | MP3 | Compressed output |
-| `mist` | MP3 | Legacy |
-
-## Languages
-
-**Arcana:** English (`eng`), Arabic (`ara`), French (`fra`), German (`ger`), Hebrew (`heb`), Hindi (`hin`), Japanese (`jpn`), Portuguese (`por`), Sinhala (`sin`), Spanish (`spa`), Tamil (`tam`)
-
-**Mist / MistV2:** English (`eng`), French (`fra`), German (`ger`), Spanish (`spa`)
+Remove the saved local API key.
 
 ## Configuration
 
 | Item | Location |
 |------|----------|
-| API key | `~/.rime/cli-api-token` |
-| Config directory | `~/.rime/` |
+| Config directory | `~/.sexyvoice/` |
+| Config file | `~/.sexyvoice/sexyvoice.toml` |
+| Env API key override | `SEXYVOICE_API_KEY` |
+| Env API URL override | `SEXYVOICE_API_URL` |
+| Env auth prefix override | `SEXYVOICE_AUTH_HEADER_PREFIX` |
 
-The `RIME_CLI_API_KEY` environment variable takes precedence over the stored key.
+Default API URL:
 
-## Uninstall
-
-**Homebrew:**
-
-```bash
-brew uninstall rime-cli
-brew untap rimelabs/rime-cli
+```text
+https://sexyvoice.ai/api/v1/speech
 ```
 
-**Shell install:**
+## Notes
 
-```bash
-rm ~/.rime/bin/rime
-```
-
-**Remove configuration:**
-
-```bash
-rm -rf ~/.rime
-```
-
-## License
-
-Proprietary. See [rime.ai](https://rime.ai) for terms.
+- The CLI validates API keys against `GET /api/v1/models`.
+- The speech endpoint returns a JSON payload with a file URL; the CLI follows that URL and downloads the audio for playback or saving.
+- The current fork intentionally narrows the surface area to the public speech API rather than preserving Rime-specific commands like `hello`, `speedtest`, `usage`, or `upgrade`.

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gopxl/beep/v2"
-	"github.com/rimelabs/rime-cli/internal/audio/detectformat"
-	"github.com/rimelabs/rime-cli/internal/audio/stream"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/detectformat"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/stream"
 )
 
 func CalculateDuration(data []byte, sampleRate int, numChannels int, bitsPerSample int) time.Duration {

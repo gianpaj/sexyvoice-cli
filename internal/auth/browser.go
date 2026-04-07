@@ -1,11 +1,14 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	_ "embed"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -24,7 +27,7 @@ const successHTMLTemplate = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Rime CLI</title>
+  <title>SexyVoice CLI</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -65,20 +68,20 @@ const successHTMLTemplate = `<!DOCTYPE html>
     {{LOGO}}
     <div class="check">✓</div>
     <div>
-      <h1>Authentication successful!</h1>
-      <p>You're logged in. You can close this tab<br>and return to your terminal.</p>
+      <h1>CLI connected!</h1>
+      <p>Your API key has been handed back to the CLI.<br>You can close this tab and return to your terminal.</p>
     </div>
   </div>
 </body>
 </html>`
 
-var successHTML = strings.ReplaceAll(successHTMLTemplate, "{{LOGO}}", logoSVG)
+var successHTML = strings.ReplaceAll(successHTMLTemplate, "{{LOGO}}", "")
 
 const errorHTML = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Rime CLI</title>
+  <title>SexyVoice CLI</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -112,14 +115,15 @@ const errorHTML = `<!DOCTYPE html>
   <div class="card">
     <div class="icon">✗</div>
     <h1>Authentication failed</h1>
-    <p>Something went wrong. Please close this tab and try <code>rime login</code> again.</p>
+    <p>Something went wrong. Please close this tab and try <code>sexyvoice login</code> again.</p>
   </div>
 </body>
 </html>`
 
 // Login performs a browser-based authentication flow and returns the API key.
-// It binds a one-shot local HTTP server to a random port, opens the Rime
-// dashboard in the user's browser, and waits for the callback carrying the token.
+// It binds a one-shot local HTTP server to a random port, opens the SexyVoice
+// dashboard in the user's browser, waits for a one-time exchange token, and
+// redeems that token for the raw API key.
 func Login(dashboardURL string) (string, error) {
 	return login(dashboardURL, openBrowser)
 }
@@ -138,11 +142,11 @@ func login(dashboardURL string, openBrowserFn func(string) error) (string, error
 		return "", fmt.Errorf("failed to start local server: %w", err)
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
-	redirectURI := fmt.Sprintf("http://localhost:%d/callback", port)
+	redirectURI := fmt.Sprintf("http://127.0.0.1:%d/callback", port)
 
 	authURL := fmt.Sprintf(
-		"%s/cli/auth?state=%s&redirect_uri=%s",
-		dashboardURL,
+		"%s/en/cli/login?state=%s&callback_url=%s",
+		strings.TrimRight(dashboardURL, "/"),
 		url.QueryEscape(state),
 		url.QueryEscape(redirectURI),
 	)
@@ -168,7 +172,7 @@ func login(dashboardURL string, openBrowserFn func(string) error) (string, error
 			return
 		}
 
-		token := q.Get("token")
+		token := q.Get("exchange_token")
 		if token == "" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(http.StatusBadRequest)
@@ -209,12 +213,59 @@ func login(dashboardURL string, openBrowserFn func(string) error) (string, error
 
 	select {
 	case token := <-tokenCh:
-		return token, nil
+		return redeemExchangeToken(dashboardURL, token)
 	case err := <-errCh:
 		return "", err
 	case <-time.After(callbackTimeout):
 		return "", fmt.Errorf("authentication timed out after %v", callbackTimeout)
 	}
+}
+
+func redeemExchangeToken(dashboardURL, exchangeToken string) (string, error) {
+	body, err := json.Marshal(map[string]string{
+		"exchange_token": exchangeToken,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to build exchange request: %w", err)
+	}
+
+	redeemURL := strings.TrimRight(dashboardURL, "/") + "/api/cli-login-sessions/redeem"
+	req, err := http.NewRequest(http.MethodPost, redeemURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create exchange request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to redeem CLI login session: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read CLI login response: %w", err)
+	}
+
+	var payload struct {
+		Key   string `json:"key"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal(respBody, &payload); err != nil {
+		return "", fmt.Errorf("failed to parse CLI login response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		if payload.Error != "" {
+			return "", fmt.Errorf("CLI login failed: %s", payload.Error)
+		}
+		return "", fmt.Errorf("CLI login failed with status %d", resp.StatusCode)
+	}
+	if payload.Key == "" {
+		return "", fmt.Errorf("CLI login failed: empty API key in response")
+	}
+	return payload.Key, nil
 }
 
 func generateState() (string, error) {

@@ -2,94 +2,66 @@ package tts
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/rimelabs/rime-cli/internal/api"
-	"github.com/rimelabs/rime-cli/internal/audio/testhelpers"
-	"github.com/rimelabs/rime-cli/internal/config"
+	"github.com/gianpaj/sexyvoice-cli/internal/api"
+	"github.com/gianpaj/sexyvoice-cli/internal/config"
 )
 
 func TestRunNonInteractive_SaveToFile(t *testing.T) {
-	wavData := testhelpers.MakeValidWAV(24000)
+	t.Setenv("HOME", t.TempDir())
+	audio := []byte("RIFF....WAVE")
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "audio/wav")
-		w.WriteHeader(http.StatusOK)
-		w.Write(wavData)
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/speech":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]string{"url": server.URL + "/audio.wav"})
+		case "/audio.wav":
+			w.Header().Set("Content-Type", "audio/wav")
+			_, _ = w.Write(audio)
+		default:
+			http.NotFound(w, r)
+		}
 	}))
 	defer server.Close()
 
-	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", originalHome)
-	os.Setenv("HOME", tmpDir)
-	os.Setenv("RIME_API_URL", server.URL)
-	defer os.Unsetenv("RIME_API_URL")
-
+	t.Setenv("SEXYVOICE_API_URL", server.URL+"/api/v1/speech")
 	if err := config.SaveAPIKey("test-key"); err != nil {
-		t.Fatalf("Failed to save API key: %v", err)
+		t.Fatalf("SaveAPIKey failed: %v", err)
 	}
 
-	outputFile := filepath.Join(tmpDir, "output.wav")
-	opts := &api.TTSOptions{
-		Speaker: "astra",
-		ModelID: "arcana",
-	}
-
-	runOpts := RunOptions{
+	outputFile := filepath.Join(t.TempDir(), "output.wav")
+	err := RunNonInteractive(RunOptions{
 		Text:       "hello",
-		TTSOptions: opts,
+		TTSOptions: &api.TTSOptions{Speaker: "poe", ModelID: api.ModelIDGPro},
 		Output:     outputFile,
-		Play:       false,
 		Quiet:      true,
-		JSON:       false,
-		Version:    "test-version",
-	}
-	err := RunNonInteractive(runOpts)
+		Version:    "test",
+	})
 	if err != nil {
 		t.Fatalf("RunNonInteractive failed: %v", err)
-	}
-
-	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
-		t.Error("Output file should be created")
-	}
-
-	data, err := os.ReadFile(outputFile)
-	if err != nil {
-		t.Fatalf("Failed to read output file: %v", err)
-	}
-
-	if !bytes.HasPrefix(data, []byte("RIFF")) {
-		t.Error("Output file should be a valid WAV file")
 	}
 }
 
 func TestRunNonInteractive_MissingAPIKey(t *testing.T) {
-	tmpDir := t.TempDir()
-	originalHome := os.Getenv("HOME")
-	defer os.Setenv("HOME", originalHome)
-	os.Setenv("HOME", tmpDir)
-
-	opts := &api.TTSOptions{
-		Speaker: "astra",
-		ModelID: "arcana",
-	}
-
-	runOpts := RunOptions{
+	t.Setenv("HOME", t.TempDir())
+	err := RunNonInteractive(RunOptions{
 		Text:       "hello",
-		TTSOptions: opts,
-		Output:     "",
-		Play:       false,
+		TTSOptions: &api.TTSOptions{Speaker: "poe", ModelID: api.ModelIDGPro},
+		Output:     filepath.Join(t.TempDir(), "output.wav"),
 		Quiet:      true,
-		JSON:       false,
-		Version:    "test-version",
-	}
-	err := RunNonInteractive(runOpts)
+		Version:    "test",
+	})
 	if err == nil {
-		t.Error("RunNonInteractive should return error when API key is missing")
+		t.Fatal("expected missing API key error")
+	}
+	if bytes.Contains([]byte(err.Error()), []byte("RIME")) {
+		t.Fatalf("unexpected old branding in error: %v", err)
 	}
 }

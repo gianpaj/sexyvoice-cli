@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/rimelabs/rime-cli/internal/audio/stream"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/stream"
 )
 
 type wavStreamerAdapter struct {

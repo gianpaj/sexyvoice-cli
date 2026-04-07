@@ -5,8 +5,8 @@ import (
 	"io"
 	"math"
 
-	"github.com/rimelabs/rime-cli/internal/audio/decode"
-	"github.com/rimelabs/rime-cli/internal/audio/detectformat"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/decode"
+	"github.com/gianpaj/sexyvoice-cli/internal/audio/detectformat"
 )
 
 func AnalyzeAmplitudesFromReader(r io.Reader, contentType string, samplesPerSecond int) ([]float64, error) {
