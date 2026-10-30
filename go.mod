@@ -3,7 +3,7 @@ module github.com/gianpaj/sexyvoice-cli
 go 1.21.0
 
 require (
-	github.com/charmbracelet/bubbletea v0.24.0
+	github.com/charmbracelet/bubbletea/v2 v2.1.1
 	github.com/charmbracelet/lipgloss v0.7.1
 	github.com/gopxl/beep/v2 v2.1.1
 	github.com/pelletier/go-toml/v2 v2.2.4
