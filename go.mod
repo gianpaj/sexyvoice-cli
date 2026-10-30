@@ -1,6 +1,6 @@
 module github.com/gianpaj/sexyvoice-cli
 
-go 1.21.0
+go 1.26.0
 
 require (
 	github.com/charmbracelet/bubbletea v0.24.0
@@ -8,7 +8,8 @@ require (
 	github.com/gopxl/beep/v2 v2.1.1
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/spf13/cobra v1.7.0
-	golang.org/x/term v0.17.0
+	github.com/spf13/pflag v1.0.5
+	golang.org/x/term v0.47.0
 )
 
 require (
@@ -28,8 +29,7 @@ require (
 	github.com/muesli/termenv v0.15.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 )
